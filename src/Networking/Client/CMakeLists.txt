@@ -1,5 +1,12 @@
 
-add_executable(Client client.c)
+add_executable(Client client.c
+        ../../UI/window.c
+        ../../UI/Components/button.c
+        ../../UI/Components/header.c
+        ../../UI/Components/Setters.c
+        ../../GameLogic/Pexeso.c
+        ../../Rules/Rules.c
+)
 
 include_directories(${CSFML_INCLUDE_DIR})
 link_directories(${CSFML_LIB_DIR})
@@ -16,7 +23,7 @@ target_link_libraries(Client
         ${CSFML_NETWORK}
         pthread
 )
-
+target_compile_options(Client PRIVATE -Wno-deprecated-declarations)
 add_custom_command(TARGET Client POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CSFML_BIN_DIR} $<TARGET_FILE_DIR:Client>

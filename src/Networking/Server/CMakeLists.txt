@@ -19,7 +19,7 @@ target_link_libraries(Server
         ${CSFML_NETWORK}
         pthread
 )
-
+target_compile_options(Server PRIVATE -Wno-deprecated-declarations)
 add_custom_command(TARGET Server POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CSFML_BIN_DIR} $<TARGET_FILE_DIR:Server>

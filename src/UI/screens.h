@@ -7,7 +7,10 @@
 typedef enum {
     MAIN_MENU,
     SINGLE_PLAYER,
+    SINGLE_PLAYER_STARTED,
     MULTI_PLAYER,
+    MULTI_PLAYER_STARTED,
+    WIN_SCREEN,
     EXIT_SCREEN
 } Screen;
 #endif //PEXESO_SCREENS_H

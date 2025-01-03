@@ -4,8 +4,10 @@
 #include <SFML/Network.h>
 #include <stdio.h>
 #include <string.h>
+#include "../../UI/window.h"
 int main()
 {
+    /*
     // Create a TCP socket
     sfTcpSocket* socket = sfTcpSocket_create();
     if (!socket) {
@@ -54,6 +56,19 @@ int main()
 
     // Cleanup
     sfTcpSocket_destroy(socket);
+
+    return 0;
+     */
+    Window* window = window_create();
+    if (!window) {
+        printf("Failed to create window\n");
+        return 1;
+    }
+
+    windowStart(window);
+
+    // Cleanup
+    windowDestroy(window);
 
     return 0;
 }

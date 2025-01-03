@@ -1,0 +1,72 @@
+# CMake build directory
+/cmake-build-debug/
+# Ninja build system files
+build.ninja
+.ninja_deps
+.ninja_log
+
+# General build directories
+/build/
+/bin/
+/Debug/
+/Release/
+/dist/
+
+# Compiled object files
+*.o
+*.obj
+
+# Executable files
+*.exe
+*.out
+*.app
+*.bin
+*.elf
+
+# Debug files
+*.dSYM/
+*.stackdump
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+
+# Temporary files
+*.tmp
+*.log
+*.swp
+*.swo
+*~
+
+# IDE specific files
+*.idea/
+*.vscode/
+*.iml
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Code coverage and testing files
+*.gcno
+*.gcda
+*.gcov
+*.lcov
+*.coverage
+*.test
+
+# Backup files
+*.bak
+*.old
+*.orig
+
+# Miscellaneous
+*.DS_Store
+Thumbs.db
