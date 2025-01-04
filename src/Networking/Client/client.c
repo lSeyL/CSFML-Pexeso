@@ -1,9 +1,7 @@
 //
 // Created by seil0 on 1. 1. 2025.
 //
-#include <SFML/Network.h>
 #include <stdio.h>
-#include <string.h>
 #include "../../UI/window.h"
 int main()
 {

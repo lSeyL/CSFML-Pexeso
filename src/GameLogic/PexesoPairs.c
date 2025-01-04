@@ -2,20 +2,49 @@
 // Created by seil0 on 3. 1. 2025.
 //
 #include "PexesoPairs.h"
-#include <stdlib.h>
-#include <time.h>
+
 
 PexesoPair* pexeso_pairs_generate(int rows, int columns) {
-    int pairCount = (rows * columns) / 2;
-    PexesoPair* pairs = (PexesoPair*)malloc(sizeof(PexesoPair) * rows * columns);
-
-    sfColor colors[] = {sfRed, sfBlue, sfGreen, sfYellow, sfCyan, sfMagenta};
-    char labels[] = {'A', 'B', 'C', 'D', 'E', 'F'};
-
-    for (int i = 0; i < pairCount; ++i) {
-        pairs[i * 2] = (PexesoPair){colors[i % 6], labels[i % 6]};
-        pairs[i * 2 + 1] = (PexesoPair){colors[i % 6], labels[i % 6]};
+    int totalCards = rows * columns;
+    if (totalCards % 2 != 0) {
+        printf("Invalid grid size: Rows * Columns must be even.\n");
+        return NULL;
     }
+
+    int pairCount = totalCards / 2;
+    PexesoPair* pairs = (PexesoPair*)malloc(sizeof(PexesoPair) * totalCards);
+
+    if (!pairs) {
+        printf("Failed to allocate memory for pairs\n");
+        return NULL;
+    }
+
+    sfColor colors[] = {sfColor_fromRGB(214, 56, 56), sfColor_fromRGB(45, 97, 186),
+                        sfColor_fromRGB(78, 173, 52), sfColor_fromRGB(194, 178, 58),
+                        sfColor_fromRGB(71, 179, 154), sfColor_fromRGB(138, 54, 191),
+                        sfColor_fromRGB(217, 131, 46), sfColor_fromRGB(224, 63, 125),
+                        sfColor_fromRGB(46, 242, 145), sfColor_fromRGB(184, 100, 55)};
+    char labels[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'};
+
+    int colorCount = sizeof(colors) / sizeof(colors[0]);
+    int labelCount = sizeof(labels) / sizeof(labels[0]);
+
+    if (pairCount > colorCount * labelCount) {
+        printf("Error: Insufficient unique pairs to support the grid size.\n");
+        free(pairs);
+        return NULL;
+    }
+
+    int pairIndex = 0;
+    for (int i = 0; i < colorCount && pairIndex < pairCount; ++i) {
+        for (int j = 0; j < labelCount && pairIndex < pairCount; ++j) {
+            pairs[pairIndex * 2] = (PexesoPair){colors[j], labels[i]};
+            pairs[pairIndex * 2 + 1] = (PexesoPair){colors[j], labels[i]};
+            pairIndex++;
+        }
+    }
+
+    shuffle_pairs(pairs, totalCards);
 
     return pairs;
 }

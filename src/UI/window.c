@@ -82,7 +82,9 @@ Window* window_create() {
     window->exitButton = buttonCreate("../../Resources/button_exit.png", 0, 0);
     window->backButton = buttonCreate("../../Resources/button_back.png", 100, 700);
     window->startButton = buttonCreate("../../Resources/button_start.png", 939, 700);
-
+    window->hostGameButton = buttonCreate("../../Resources/button_host-a-game.png", 271, 500);
+    window->joinGameButton = buttonCreate("../../Resources/button_join-a-game.png", 674, 500);
+    window->okButton = buttonCreate("../../Resources/button_ok.png", 532, 400);
     if (!window->singlePlayerButton || !window->multiplayerButton || !window->exitButton) {
         printf("Failed to create a button.\n");
         windowDestroy(window);
@@ -118,9 +120,12 @@ Window* window_create() {
     window->colLabel = label_create("Rows:", window->font, (sfVector2f){75, 180}, 60, sfWhite);
     window->playersLabel = label_create("Players", window->font, (sfVector2f){950, 50}, 50, sfWhite);
     window->errorLabel  = label_create("", window->font, (sfVector2f){280, 275}, 50, sfRed);
+    window->infoLabel  = label_create("", window->font, (sfVector2f){280, 275}, 75, sfWhite);
     window->rules = rules_create();
     window->game = game_create(window->renderWindow, window->rules);
-
+    window->colSize = 2;
+    window->rowSize = 2;
+    window->socket = NULL;
     return window;
 }
 
@@ -134,17 +139,14 @@ void handleClick(Window *window) {
         //menu
         if (*window->currentScreen == MAIN_MENU) {
             if (buttonClicked(window->singlePlayerButton, &event)) {
-                printf("Single Player Game Started\n");
                 *window->currentScreen = SINGLE_PLAYER;
             }
 
             if (buttonClicked(window->multiplayerButton, &event)) {
-                printf("Multiplayer Game Started\n");
-                *window->currentScreen = MULTI_PLAYER;
+                *window->currentScreen = MULTI_PLAYER_HOSTJOIN;
             }
 
             if (buttonClicked(window->exitButton, &event)) {
-                printf("Exiting Game\n");
                 *window->currentScreen = EXIT_SCREEN;
                 sfRenderWindow_close(window->renderWindow);
             }
@@ -178,6 +180,63 @@ void handleClick(Window *window) {
 
         }
         //multi
+        if (*window->currentScreen == MULTI_PLAYER_HOSTJOIN)
+        {
+            if (buttonClicked(window->backButton, &event)) {
+                printf("back\n");
+                *window->currentScreen = MAIN_MENU;
+            }
+            if (buttonClicked(window->hostGameButton, &event)) {
+                printf("back\n");
+                *window->currentScreen = MULTI_PLAYER_HOST;
+                char infoMessage[256];
+                sprintf(infoMessage, "Hosting a server...", window->rowSize, window->colSize);
+                label_set_text(window->infoLabel, infoMessage);
+            }
+            if (buttonClicked(window->joinGameButton, &event)) {
+                printf("back\n");
+                *window->currentScreen = MULTI_PLAYER_JOIN;
+                char infoMessage[256];
+                sprintf(infoMessage, "Joining a server...", window->rowSize, window->colSize);
+                label_set_text(window->infoLabel, infoMessage);
+            }
+        }
+        if (*window->currentScreen == MULTI_PLAYER_HOST)
+        {
+            if (buttonClicked(window->backButton, &event)) {
+                *window->currentScreen = MULTI_PLAYER_HOSTJOIN;
+            }
+            if (buttonClicked(window->okButton, &event)) {
+                printf("HOSTING\n");
+                *window->currentScreen = MULTI_PLAYER;
+                if (system("start Server.exe") == -1) {
+                    printf("Failed to start the server.\n");
+                }
+            }
+        }
+        if (*window->currentScreen == MULTI_PLAYER_JOIN)
+        {
+            if (buttonClicked(window->backButton, &event)) {
+                *window->currentScreen = MULTI_PLAYER_HOSTJOIN;
+            }
+            if (buttonClicked(window->okButton, &event)) {
+                printf("Hosting..\n");
+                *window->currentScreen = MULTI_PLAYER_TRYJOIN;
+                window->socket = sfTcpSocket_create();
+                if (!window->socket) {
+                    printf("Failed to create socket\n");
+                    return;
+                }
+                sfIpAddress serverAddress = sfIpAddress_fromString("127.0.0.1");
+                sfSocketStatus status = sfTcpSocket_connect(window->socket, serverAddress, 53000, sfSeconds(5.0f));
+                if (status != sfSocketDone) {
+                    printf("Failed to connect to server\n");
+                    sfTcpSocket_destroy(window->socket);
+                    window->socket = NULL;
+                }
+            }
+        }
+
         if (*window->currentScreen == MULTI_PLAYER) {
             setters_handleEvent(window->rowButtons, &event);
             setters_handleEvent(window->columnButtons, &event);
@@ -186,13 +245,12 @@ void handleClick(Window *window) {
             window->rowSize = getSelected(window->rowButtons);
             window->colSize = getSelected(window->columnButtons);
             if (buttonClicked(window->backButton, &event)) {
-                printf("back\n");
                 *window->currentScreen = MAIN_MENU;
             }
 
             if (buttonClicked(window->startButton, &event)) {
                 if (checkPair(window->rules, window->rowSize, window->colSize)) {
-                    printf("start\n");
+                    printf("Starting..\n");
                     window->canStart = true;
                     *window->currentScreen = MULTI_PLAYER_STARTED;
                     game_start(window->game, window->colSize, window->rowSize, window->renderWindow);
@@ -207,6 +265,7 @@ void handleClick(Window *window) {
             }
 
         }
+
 
         if (*window->currentScreen == SINGLE_PLAYER_STARTED) {
             //printf("game handle event\n");
@@ -258,6 +317,21 @@ void draw(Window* window, Screen currentScreen) {
         {
             label_draw(window->errorLabel, window->renderWindow);
         }
+    } else if (currentScreen == MULTI_PLAYER_HOSTJOIN) {
+        sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
+        sfRenderWindow_drawRectangleShape(window->renderWindow, window->hostGameButton->shape, NULL);
+        sfRenderWindow_drawRectangleShape(window->renderWindow, window->joinGameButton->shape, NULL);
+        sfRenderWindow_drawRectangleShape(window->renderWindow, window->backButton->shape, NULL);
+    } else if (currentScreen == MULTI_PLAYER_HOST) {
+        sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
+        label_draw(window->infoLabel, window->renderWindow);
+        sfRenderWindow_drawRectangleShape(window->renderWindow, window->okButton->shape, NULL);
+        sfRenderWindow_drawRectangleShape(window->renderWindow, window->backButton->shape, NULL);
+    } else if (currentScreen == MULTI_PLAYER_JOIN) {
+        sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
+        label_draw(window->infoLabel, window->renderWindow);
+        sfRenderWindow_drawRectangleShape(window->renderWindow, window->okButton->shape, NULL);
+        sfRenderWindow_drawRectangleShape(window->renderWindow, window->backButton->shape, NULL);
     } else if (currentScreen == SINGLE_PLAYER_STARTED) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
         game_draw(window->game, window->renderWindow);
@@ -282,23 +356,31 @@ void windowDestroy(Window* window) {
     if (window->currentScreen) free(window->currentScreen);
     if (window->backgroundSprite) sfSprite_destroy(window->backgroundSprite);
     if (window->backgroundTexture) sfTexture_destroy(window->backgroundTexture);
+    //Buttons
     if (window->singlePlayerButton) buttonDestroy(window->singlePlayerButton);
     if (window->multiplayerButton)buttonDestroy(window->multiplayerButton);
     if (window->exitButton)buttonDestroy(window->exitButton);
+    if (window->hostGameButton)buttonDestroy(window->hostGameButton);
+    if (window->joinGameButton)buttonDestroy(window->joinGameButton);
+    //
     if (window->header)headerDestroy(window->header);
-    if (window->font)sfFont_destroy(window->font);
     if (window->renderWindow) sfRenderWindow_destroy(window->renderWindow);
-    settersDestroy(window->rowButtons);
-    settersDestroy(window->columnButtons);
-    settersDestroy(window->modeButtons);
-    settersDestroy(window->difficultyButtons);
+    if (window->rowButtons)settersDestroy(window->rowButtons);
+    if (window->columnButtons)settersDestroy(window->columnButtons);
+    if (window->modeButtons)settersDestroy(window->modeButtons);
+    if (window->difficultyButtons)settersDestroy(window->difficultyButtons);
 
-    label_destroy(window->rowLabel);
-    label_destroy(window->colLabel);
-    label_destroy(window->errorLabel);
+    if (window->rowLabel)label_destroy(window->rowLabel);
+    if (window->colLabel)label_destroy(window->colLabel);
+    if (window->errorLabel)label_destroy(window->errorLabel);
+    if (window->infoLabel)label_destroy(window->infoLabel);
+    if (window->font)sfFont_destroy(window->font);
 
-    game_destroy(window->game);
-    rules_destroy(window->rules);
+    if (window->game)game_destroy(window->game);
+    if (window->rules)rules_destroy(window->rules);
 
+    if (window->socket) {
+        sfTcpSocket_destroy(window->socket);
+    }
     free(window);
 }

@@ -7,6 +7,7 @@
 #include <SFML/Graphics.h>
 #include <SFML/Window.h>
 #include <SFML/System.h>
+#include <SFML/Network.h>
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -28,6 +29,9 @@ typedef struct {
     Button* exitButton;
     Button* backButton;
     Button* startButton;
+    Button* hostGameButton;
+    Button* joinGameButton;
+    Button* okButton;
     SetterButtons* rowButtons;
     SetterButtons* columnButtons;
     SetterButtons* modeButtons;
@@ -37,12 +41,14 @@ typedef struct {
     Label* rowLabel;
     Label* colLabel;
     Label* errorLabel;
+    Label* infoLabel;
     Label* playersLabel;
     Screen* currentScreen;
     Header* header;
     sfFont* font;
     Rules* rules;
     Game* game;
+    sfTcpSocket* socket;
     int rowSize;
     int colSize;
     bool canStart;

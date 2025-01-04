@@ -53,10 +53,6 @@ void handleClickOnCard(Pexeso* pexeso, const sfEvent* event) {
     if (event->type == sfEvtMouseButtonPressed) {
         sfVector2f mousePos = {event->mouseButton.x, event->mouseButton.y};
         if (isClicked(pexeso, &mousePos)) {
-            printf("Click: ID:[%d], COLOR:[%u], LABEL:[%c]\n",
-                   pexeso->id,
-                   getIntegerBasedOnColor(pexeso->frontColor),
-                   pexeso->label);
             if (!pexeso->revealed) {
                 reveal(pexeso);
             }
