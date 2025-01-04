@@ -48,9 +48,10 @@ void pexesoDraw(Pexeso* pexeso, sfRenderWindow* window) {
         sfRenderWindow_drawText(window, pexeso->textLabel, NULL);
     }
 }
-void handleEvent(Pexeso* pexeso, const sfEvent* event, sfRenderWindow* window) {
+void handleClickOnCard(Pexeso* pexeso, const sfEvent* event) {
+    if (!pexeso || !event) return;
     if (event->type == sfEvtMouseButtonPressed) {
-        sfVector2i mousePos = sfMouse_getPositionRenderWindow(window);
+        sfVector2f mousePos = {event->mouseButton.x, event->mouseButton.y};
         if (isClicked(pexeso, &mousePos)) {
             printf("Click: ID:[%d], COLOR:[%u], LABEL:[%c]\n",
                    pexeso->id,
@@ -62,7 +63,8 @@ void handleEvent(Pexeso* pexeso, const sfEvent* event, sfRenderWindow* window) {
         }
     }
 }
-sfBool isClicked(const Pexeso* pexeso, const sfVector2i* mousePosition) {
+sfBool isClicked(const Pexeso* pexeso, const sfVector2f* mousePosition) {
+    if (!pexeso || !mousePosition) return sfFalse;
     sfFloatRect bounds = sfRectangleShape_getGlobalBounds(pexeso->shape);
     return sfFloatRect_contains(&bounds, mousePosition->x, mousePosition->y);
 }

@@ -24,10 +24,14 @@ Button* buttonCreate(const char* texturePath, float x, float y) {
     button->hitbox = sfRectangleShape_getGlobalBounds(button->shape);
     return button;
 }
-sfBool buttonClicked(Button* button, sfVector2f mousePos) {
+sfBool buttonClicked(Button* button, sfEvent* event) {
     if (!button) return sfFalse;
-    button->hitbox = sfRectangleShape_getGlobalBounds(button->shape);
-    return sfFloatRect_contains(&button->hitbox, mousePos.x, mousePos.y);
+    if (event->type == sfEvtMouseButtonPressed) {
+        sfVector2i mousePos = {event->mouseButton.x, event->mouseButton.y};
+        button->hitbox = sfRectangleShape_getGlobalBounds(button->shape);
+        return sfFloatRect_contains(&button->hitbox, mousePos.x, mousePos.y);
+    }
+    return sfFalse;
 }
 void buttonDestroy(Button* button) {
     if (button) {

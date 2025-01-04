@@ -6,6 +6,10 @@ add_executable(Client client.c
         ../../UI/Components/Setters.c
         ../../GameLogic/Pexeso.c
         ../../Rules/Rules.c
+        ../../GameLogic/Game.c
+        ../../GameLogic/PexesoGrid.c
+        ../../GameLogic/PexesoPairs.c
+        ../../UI/Components/label.c
 )
 
 include_directories(${CSFML_INCLUDE_DIR})

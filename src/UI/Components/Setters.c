@@ -74,12 +74,18 @@ void drawSetters(SetterButtons* dimensionButtons, sfRenderWindow* window) {
         sfRenderWindow_drawText(window, dimensionButtons->labels[i], NULL);
     }
 }
-void setters_handleEvent(SetterButtons* dimensionButtons, sfVector2f mousePosF) {
-    for (size_t i = 0; i < dimensionButtons->buttonCount; ++i) {
-        sfFloatRect bounds = sfRectangleShape_getGlobalBounds(dimensionButtons->buttons[i]);
-        if (sfFloatRect_contains(&bounds, mousePosF.x, mousePosF.y)) {
-            dimensionButtons->selectedIndex = i;
-            highlightButton(dimensionButtons, i);
+void setters_handleEvent(SetterButtons* dimensionButtons, const sfEvent* event) {
+    if (!dimensionButtons || !event) return;
+
+    if (event->type == sfEvtMouseButtonPressed) {
+        sfVector2f mousePosF = {event->mouseButton.x, event->mouseButton.y};
+        for (size_t i = 0; i < dimensionButtons->buttonCount; ++i) {
+            sfFloatRect bounds = sfRectangleShape_getGlobalBounds(dimensionButtons->buttons[i]);
+            if (sfFloatRect_contains(&bounds, mousePosF.x, mousePosF.y)) {
+                dimensionButtons->selectedIndex = i;
+                highlightButton(dimensionButtons, i);
+                break;
+            }
         }
     }
 }

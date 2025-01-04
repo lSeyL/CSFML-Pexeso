@@ -66,8 +66,6 @@ int main()
     }
 
     windowStart(window);
-
-    // Cleanup
     windowDestroy(window);
 
     return 0;

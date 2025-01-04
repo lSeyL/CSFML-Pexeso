@@ -17,10 +17,11 @@ typedef struct {
     sfBool revealed;
     sfBool clicked;
 } Pexeso;
+unsigned int getIntegerBasedOnColor(sfColor color);
 Pexeso* pexesoCreate(const sfVector2f* position, const sfVector2f* size, sfColor backColor, sfColor frontColor, char label);
 void pexesoDraw(Pexeso* pexeso, sfRenderWindow* window);
-void handleEvent(Pexeso* pexeso, const sfEvent* event, sfRenderWindow* window);
-sfBool isClicked(const Pexeso* pexeso, const sfVector2i* mousePosition);
+void handleClickOnCard(Pexeso* pexeso, const sfEvent* event);
+sfBool isClicked(const Pexeso* pexeso, const sfVector2f* mousePosition);
 void reveal(Pexeso* pexeso);
 void hide(Pexeso* pexeso);
 void setColor(Pexeso* pexeso, sfColor color);

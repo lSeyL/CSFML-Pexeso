@@ -113,66 +113,112 @@ Window* window_create() {
     sfRectangleShape_setPosition(window->singlePlayerButton->shape, singlePlayerPosition);
     sfRectangleShape_setPosition(window->multiplayerButton->shape, multiplayerPosition);
     sfRectangleShape_setPosition(window->exitButton->shape, exitPosition);
+
+    window->rowLabel = label_create("Columns:", window->font, (sfVector2f){75, 80}, 60, sfWhite);
+    window->colLabel = label_create("Rows:", window->font, (sfVector2f){75, 180}, 60, sfWhite);
+    window->playersLabel = label_create("Players", window->font, (sfVector2f){950, 50}, 50, sfWhite);
+    window->errorLabel  = label_create("", window->font, (sfVector2f){280, 275}, 50, sfRed);
     window->rules = rules_create();
+    window->game = game_create(window->renderWindow, window->rules);
+
     return window;
 }
-void handleClick(Window* window, sfVector2f mousePosF, Screen* currentScreen) {
-    if(*window->currentScreen == MAIN_MENU) {
-    if (buttonClicked(window->singlePlayerButton, mousePosF)) {
-        printf("Single Player Game Started\n");
-        *window->currentScreen = SINGLE_PLAYER;
-    }
 
-    if (buttonClicked(window->multiplayerButton, mousePosF)) {
-        printf("Multiplayer Game Started\n");
-        *window->currentScreen = MULTI_PLAYER;
-    }
-
-    if (buttonClicked(window->exitButton, mousePosF)) {
-        printf("Exiting Game\n");
-        *window->currentScreen = EXIT_SCREEN;
-        sfRenderWindow_close(window->renderWindow);
-    }
-    }
-    if(*window->currentScreen == SINGLE_PLAYER) {
-        setters_handleEvent(window->rowButtons, mousePosF);
-        setters_handleEvent(window->columnButtons, mousePosF);
-        setters_handleEvent(window->modeButtons, mousePosF);
-        setters_handleEvent(window->difficultyButtons, mousePosF);
-        window->rowSize = getSelected(window->rowButtons);
-        window->colSize = getSelected(window->columnButtons);
-        if (buttonClicked(window->backButton, mousePosF)) {
-            printf("back\n");
-            *window->currentScreen = MAIN_MENU;
-        }
-
-        if (buttonClicked(window->startButton, mousePosF)) {
-            if(checkPair(window->rules, window->rowSize, window->colSize)) {
-                printf("start\n");
-                *window->currentScreen = SINGLE_PLAYER_STARTED;
-            } else {
-                printf("cannot start rows: %d , cols: %d\n", window->rowSize, window->colSize);
-            }
-
-        }
-    }
-
-
-}
-
-void handleClickEvents(Window* window, Screen* currentScreen) {
+void handleClick(Window *window) {
     sfEvent event;
     while (sfRenderWindow_pollEvent(window->renderWindow, &event)) {
         if (event.type == sfEvtClosed) {
             sfRenderWindow_close(window->renderWindow);
         }
-        if (event.type == sfEvtMouseButtonPressed) {
-            sfVector2i mousePos = sfMouse_getPositionRenderWindow(window->renderWindow);
-            sfVector2f mousePosF = (sfVector2f){mousePos.x, mousePos.y};
-            handleClick(window, mousePosF, currentScreen);
+
+        //menu
+        if (*window->currentScreen == MAIN_MENU) {
+            if (buttonClicked(window->singlePlayerButton, &event)) {
+                printf("Single Player Game Started\n");
+                *window->currentScreen = SINGLE_PLAYER;
+            }
+
+            if (buttonClicked(window->multiplayerButton, &event)) {
+                printf("Multiplayer Game Started\n");
+                *window->currentScreen = MULTI_PLAYER;
+            }
+
+            if (buttonClicked(window->exitButton, &event)) {
+                printf("Exiting Game\n");
+                *window->currentScreen = EXIT_SCREEN;
+                sfRenderWindow_close(window->renderWindow);
+            }
+        }
+        //single
+        if (*window->currentScreen == SINGLE_PLAYER) {
+            setters_handleEvent(window->rowButtons, &event);
+            setters_handleEvent(window->columnButtons, &event);
+            setters_handleEvent(window->modeButtons, &event);
+            setters_handleEvent(window->difficultyButtons, &event);
+            window->rowSize = getSelected(window->rowButtons);
+            window->colSize = getSelected(window->columnButtons);
+            if (buttonClicked(window->backButton, &event)) {
+                printf("back\n");
+                *window->currentScreen = MAIN_MENU;
+            }
+            if (buttonClicked(window->startButton, &event)) {
+                if (checkPair(window->rules, window->rowSize, window->colSize)) {
+                    printf("start\n");
+                    *window->currentScreen = SINGLE_PLAYER_STARTED;
+                    game_start(window->game, window->colSize, window->rowSize, window->renderWindow);
+                } else {
+                    window->canStart = false;
+                    char errorMessage[256];
+                    sprintf(errorMessage, "Cannot start the game with %d x %d", window->rowSize, window->colSize);
+                    label_set_text(window->errorLabel, errorMessage);
+                    printf("cannot start rows: %d , cols: %d\n", window->rowSize, window->colSize);
+                }
+
+            }
+
+        }
+        //multi
+        if (*window->currentScreen == MULTI_PLAYER) {
+            setters_handleEvent(window->rowButtons, &event);
+            setters_handleEvent(window->columnButtons, &event);
+            setters_handleEvent(window->modeButtons, &event);
+            //setters_handleEvent(window->difficultyButtons, mousePosF);
+            window->rowSize = getSelected(window->rowButtons);
+            window->colSize = getSelected(window->columnButtons);
+            if (buttonClicked(window->backButton, &event)) {
+                printf("back\n");
+                *window->currentScreen = MAIN_MENU;
+            }
+
+            if (buttonClicked(window->startButton, &event)) {
+                if (checkPair(window->rules, window->rowSize, window->colSize)) {
+                    printf("start\n");
+                    window->canStart = true;
+                    *window->currentScreen = MULTI_PLAYER_STARTED;
+                    game_start(window->game, window->colSize, window->rowSize, window->renderWindow);
+                } else {
+                    window->canStart = false;
+                    char errorMessage[256];
+                    sprintf(errorMessage, "Cannot start the game with %d x %d", window->rowSize, window->colSize);
+                    label_set_text(window->errorLabel, errorMessage);
+                    printf("cannot start rows: %d , cols: %d\n", window->rowSize, window->colSize);
+                }
+
+            }
+
+        }
+
+        if (*window->currentScreen == SINGLE_PLAYER_STARTED) {
+            //printf("game handle event\n");
+            game_handle_event(window->game, &event);
+        }
+        if (*window->currentScreen == MULTI_PLAYER_STARTED) {
+            //printf("game handle event\n");
+            game_handle_event(window->game, &event);
         }
     }
 }
+
 
 void draw(Window* window, Screen currentScreen) {
     sfRenderWindow_clear(window->renderWindow, sfBlack);
@@ -190,17 +236,44 @@ void draw(Window* window, Screen currentScreen) {
         drawSetters(window->columnButtons, window->renderWindow);
         drawSetters(window->modeButtons, window->renderWindow);
         drawSetters(window->difficultyButtons, window->renderWindow);
+        label_draw(window->rowLabel, window->renderWindow);
+        label_draw(window->colLabel, window->renderWindow);
+        if(!window->canStart)
+        {
+            label_draw(window->errorLabel, window->renderWindow);
+        }
+
     } else if (currentScreen == MULTI_PLAYER) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
+        sfRenderWindow_drawRectangleShape(window->renderWindow, window->backButton->shape, NULL);
+        sfRenderWindow_drawRectangleShape(window->renderWindow, window->startButton->shape, NULL);
+        drawSetters(window->rowButtons, window->renderWindow);
+        drawSetters(window->columnButtons, window->renderWindow);
+        drawSetters(window->modeButtons, window->renderWindow);
+        //drawSetters(window->difficultyButtons, window->renderWindow);
+        label_draw(window->rowLabel, window->renderWindow);
+        label_draw(window->colLabel, window->renderWindow);
+        label_draw(window->playersLabel, window->renderWindow);
+        if(!window->canStart)
+        {
+            label_draw(window->errorLabel, window->renderWindow);
+        }
+    } else if (currentScreen == SINGLE_PLAYER_STARTED) {
+        sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
+        game_draw(window->game, window->renderWindow);
+    }else if (currentScreen == MULTI_PLAYER_STARTED) {
+        sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
+        game_draw(window->game, window->renderWindow);
     }
-    sfRenderWindow_display(window->renderWindow);
+
 }
 
 void windowStart(Window* window) {
     if (!window || !window->renderWindow) return;
     while (sfRenderWindow_isOpen(window->renderWindow)) {
-        handleClickEvents(window, window->currentScreen);
+        handleClick(window);
         draw(window, *window->currentScreen);
+        sfRenderWindow_display(window->renderWindow);
     }
 }
 
@@ -219,6 +292,12 @@ void windowDestroy(Window* window) {
     settersDestroy(window->columnButtons);
     settersDestroy(window->modeButtons);
     settersDestroy(window->difficultyButtons);
+
+    label_destroy(window->rowLabel);
+    label_destroy(window->colLabel);
+    label_destroy(window->errorLabel);
+
+    game_destroy(window->game);
     rules_destroy(window->rules);
 
     free(window);

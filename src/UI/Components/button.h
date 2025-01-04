@@ -13,7 +13,7 @@ typedef struct {
 } Button;
 
 Button* buttonCreate(const char* texturePath, float x, float y);
-sfBool buttonClicked(Button* button, sfVector2f mousePos);
+sfBool buttonClicked(Button* button, sfEvent* event);
 void buttonDestroy(Button* button);
 
 #endif //PEXESO_BUTTON_H

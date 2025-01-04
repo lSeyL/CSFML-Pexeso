@@ -7,12 +7,19 @@
 #include <SFML/Graphics.h>
 #include <SFML/Window.h>
 #include <SFML/System.h>
+
 #include <stdio.h>
+#include <stdbool.h>
+#include <string.h>
+
 #include "screens.h"
 #include "Components/button.h"
 #include "Components/header.h"
+#include "Components/label.h"
 #include "Components/Setters.h"
 #include "../Rules/Rules.h"
+#include "../GameLogic/Game.h"
+
 
 typedef struct {
     sfRenderWindow* renderWindow;
@@ -27,17 +34,22 @@ typedef struct {
     SetterButtons* difficultyButtons;
     sfTexture* backgroundTexture;
     sfSprite* backgroundSprite;
+    Label* rowLabel;
+    Label* colLabel;
+    Label* errorLabel;
+    Label* playersLabel;
     Screen* currentScreen;
     Header* header;
     sfFont* font;
     Rules* rules;
+    Game* game;
     int rowSize;
     int colSize;
+    bool canStart;
 } Window;
 
 Window* window_create();
-void handleClick(Window* window, sfVector2f mousePosF, Screen* currentScreen);
-void handleClickEvents(Window* window, Screen* currentScreen);
+void handleClickEvents(Window* window);
 void draw(Window* window, Screen currentScreen);
 void windowStart(Window* window);
 void windowDestroy(Window* window);
