@@ -228,15 +228,16 @@ void handleClick(Window *window) {
             }
             if (buttonClicked(window->okButton, &event)) {
                 printf("Joining...\n");
-                *window->currentScreen = MULTI_PLAYER_TRYJOIN;
-                //pthread_mutex_lock(&window->socketMutex);
+                //*window->currentScreen = MULTI_PLAYER_TRYJOIN;
+                *window->currentScreen = MULTI_PLAYER_STARTED;
+                pthread_mutex_lock(&window->socketMutex);
                 window->socket = sfTcpSocket_create();
                 if (!window->socket) {
                     printf("Failed to create socket\n");
                     char errorMessage[256];
                     sprintf(errorMessage, "Failed to create socket.");
                     label_set_text(window->errorLabel, errorMessage);
-                    //pthread_mutex_unlock(&window->socketMutex);
+                    pthread_mutex_unlock(&window->socketMutex);
                     return;
                 }
                 sfIpAddress serverAddress = sfIpAddress_fromString("127.0.0.1");
@@ -250,13 +251,13 @@ void handleClick(Window *window) {
                     window->socket = NULL;
                     return;
                 }
-                //pthread_mutex_unlock(&window->socketMutex);
+                pthread_mutex_unlock(&window->socketMutex);
                 printf("Hello!\n");
                 pthread_t listenerThread;
                 pthread_create(&listenerThread, NULL, server_listener_thread, window);
                 pthread_detach(listenerThread);
                 printf("Hiiii!\n");
-                *window->currentScreen = MULTI_PLAYER_STARTED;
+
             }
         }
 
@@ -460,12 +461,11 @@ void* server_listener_thread(void* arg) {
         }
         sfSocketStatus status = sfTcpSocket_receive(window->socket, buffer, sizeof(buffer) - 1, &received);
         pthread_mutex_unlock(&window->socketMutex);
-        sfSleep(sfMilliseconds(400));
         if (status == sfSocketDisconnected) {
             printf("Disconnected from server\n");
             break;
         } else if (status == sfSocketNotReady) {
-            sfSleep(sfMilliseconds(100));
+            sfSleep(sfMilliseconds(250));
             continue;
         } else if (status == sfSocketError) {
             printf("Socket error occurred\n");

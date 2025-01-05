@@ -16,6 +16,7 @@ typedef struct {
     int id;
     sfBool revealed;
     sfBool clicked;
+    sfBool wasFound;
 } Pexeso;
 unsigned int getIntegerBasedOnColor(sfColor color);
 Pexeso* pexesoCreate(const sfVector2f* position, const sfVector2f* size, sfColor backColor, sfColor frontColor, char label);
@@ -32,4 +33,5 @@ sfBool getRevealed(const Pexeso* pexeso);
 int getID(const Pexeso* pexeso);
 void setID(Pexeso* pexeso, int id);
 void destroy(Pexeso* pexeso);
+void setWasFound(Pexeso* pexeso);
 #endif //PEXESO_PEXESO_H

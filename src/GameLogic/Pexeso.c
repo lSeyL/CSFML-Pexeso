@@ -16,6 +16,7 @@ Pexeso* pexesoCreate(const sfVector2f* position, const sfVector2f* size, sfColor
     pexeso->label = label;
     pexeso->revealed = sfFalse;
     pexeso->clicked = sfFalse;
+    pexeso->wasFound = sfFalse;
     pexeso->id = -1;
     pexeso->shape = sfRectangleShape_create();
     sfRectangleShape_setPosition(pexeso->shape, *position);
@@ -54,7 +55,7 @@ void handleClickOnCard(Pexeso* pexeso, const sfEvent* event) {
     if (event->type == sfEvtMouseButtonPressed) {
         sfVector2f mousePos = {event->mouseButton.x, event->mouseButton.y};
         if (isClicked(pexeso, &mousePos)) {
-            if (!pexeso->revealed) {
+            if (!pexeso->revealed && !pexeso->wasFound) {
                 reveal(pexeso);
             }
         }
@@ -101,4 +102,7 @@ void destroy(Pexeso* pexeso) {
         if (pexeso->font) sfFont_destroy(pexeso->font);
         free(pexeso);
     }
+}
+void setWasFound(Pexeso* pexeso) {
+    pexeso->wasFound = sfTrue;
 }

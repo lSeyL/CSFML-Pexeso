@@ -126,6 +126,8 @@ void game_check_pair(Pexeso* revealedCards[2], bool* waitingToHide, sfClock* rev
         hide(revealedCards[1]);
         setColor(revealedCards[0], sfTransparent);
         setColor(revealedCards[1], sfTransparent);
+        setWasFound(revealedCards[0]);
+        setWasFound(revealedCards[1]);
         revealedCards[0] = revealedCards[1] = NULL;
     } else {
         printf("Not a pair.\n");
