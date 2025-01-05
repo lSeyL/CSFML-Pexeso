@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "screens.h"
 #include "Components/button.h"
@@ -49,9 +50,12 @@ typedef struct {
     Rules* rules;
     Game* game;
     sfTcpSocket* socket;
+    pthread_mutex_t socketMutex;
     int rowSize;
     int colSize;
     bool canStart;
+    bool isHost;
+    bool isNetworkingThreadRunning;
 } Window;
 
 Window* window_create();
@@ -59,5 +63,9 @@ void handleClickEvents(Window* window);
 void draw(Window* window, Screen currentScreen);
 void windowStart(Window* window);
 void windowDestroy(Window* window);
+
+void* server_listener_thread(void* arg);
+void* networking_thread(void* arg);
+void send_grid_to_server(sfTcpSocket* socket, int rows, int cols);
 
 #endif //PEXESO_WINDOW_H

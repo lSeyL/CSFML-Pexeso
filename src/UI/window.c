@@ -7,9 +7,9 @@
 Window* window_create() {
     Window* window = (Window*)malloc(sizeof(Window));
     window->currentScreen = (Screen*)malloc(sizeof(Screen));
-    window->font = sfFont_createFromFile("../../Resources/Roboto-Light.ttf");
+    window->font = sfFont_createFromFile("C:/pos_sem/Pexeso/Resources/Roboto-Light.ttf");
     if (!window->font) {
-        printf("Failed to load font\n");
+        printf("Window - Failed to load font\n");
         return NULL;
     }
     *window->currentScreen = MAIN_MENU;
@@ -126,6 +126,8 @@ Window* window_create() {
     window->colSize = 2;
     window->rowSize = 2;
     window->socket = NULL;
+    pthread_mutex_init(&window->socketMutex, NULL);
+    window->isHost = false;
     return window;
 }
 
@@ -167,7 +169,7 @@ void handleClick(Window *window) {
                 if (checkPair(window->rules, window->rowSize, window->colSize)) {
                     printf("start\n");
                     *window->currentScreen = SINGLE_PLAYER_STARTED;
-                    game_start(window->game, window->colSize, window->rowSize, window->renderWindow);
+                    game_start_singleplayer(window->game, window->colSize, window->rowSize, window->renderWindow);
                 } else {
                     window->canStart = false;
                     char errorMessage[256];
@@ -207,11 +209,16 @@ void handleClick(Window *window) {
                 *window->currentScreen = MULTI_PLAYER_HOSTJOIN;
             }
             if (buttonClicked(window->okButton, &event)) {
-                printf("HOSTING\n");
-                *window->currentScreen = MULTI_PLAYER;
+                printf("Hosting...\n");
                 if (system("start Server.exe") == -1) {
                     printf("Failed to start the server.\n");
+                    char errorMessage[256];
+                    sprintf(errorMessage, "Failed to start the server.");
+                    label_set_text(window->errorLabel, errorMessage);
+                    return;
                 }
+                window->isHost = true;
+                *window->currentScreen = MULTI_PLAYER;
             }
         }
         if (*window->currentScreen == MULTI_PLAYER_JOIN)
@@ -220,20 +227,36 @@ void handleClick(Window *window) {
                 *window->currentScreen = MULTI_PLAYER_HOSTJOIN;
             }
             if (buttonClicked(window->okButton, &event)) {
-                printf("Hosting..\n");
+                printf("Joining...\n");
                 *window->currentScreen = MULTI_PLAYER_TRYJOIN;
+                //pthread_mutex_lock(&window->socketMutex);
                 window->socket = sfTcpSocket_create();
                 if (!window->socket) {
                     printf("Failed to create socket\n");
+                    char errorMessage[256];
+                    sprintf(errorMessage, "Failed to create socket.");
+                    label_set_text(window->errorLabel, errorMessage);
+                    //pthread_mutex_unlock(&window->socketMutex);
                     return;
                 }
                 sfIpAddress serverAddress = sfIpAddress_fromString("127.0.0.1");
                 sfSocketStatus status = sfTcpSocket_connect(window->socket, serverAddress, 53000, sfSeconds(5.0f));
                 if (status != sfSocketDone) {
                     printf("Failed to connect to server\n");
+                    char errorMessage[256];
+                    sprintf(errorMessage, "Failed to connect to server.");
+                    label_set_text(window->errorLabel, errorMessage);
                     sfTcpSocket_destroy(window->socket);
                     window->socket = NULL;
+                    return;
                 }
+                //pthread_mutex_unlock(&window->socketMutex);
+                printf("Hello!\n");
+                pthread_t listenerThread;
+                pthread_create(&listenerThread, NULL, server_listener_thread, window);
+                pthread_detach(listenerThread);
+                printf("Hiiii!\n");
+                *window->currentScreen = MULTI_PLAYER_STARTED;
             }
         }
 
@@ -253,13 +276,47 @@ void handleClick(Window *window) {
                     printf("Starting..\n");
                     window->canStart = true;
                     *window->currentScreen = MULTI_PLAYER_STARTED;
-                    game_start(window->game, window->colSize, window->rowSize, window->renderWindow);
+                    if (window->isHost) {
+                        printf("Hosting server...\n");
+                        if (system("start Server.exe") == -1) {
+                            printf("Failed to start the server.\n");
+                            return;
+                        }
+                        window->socket = sfTcpSocket_create();
+                        if (!window->socket) {
+                            printf("Failed to create socket\n");
+                            return;
+                        }
+                        sfIpAddress serverAddress = sfIpAddress_fromString("127.0.0.1");
+                        sfSocketStatus status = sfTcpSocket_connect(window->socket, serverAddress, 53000, sfSeconds(5.0f));
+                        if (status != sfSocketDone) {
+                            printf("Failed to connect to the server\n");
+                            sfTcpSocket_destroy(window->socket);
+                            window->socket = NULL;
+                            return;
+                        }
+
+                        send_grid_to_server(window->socket, window->rowSize, window->colSize);
+
+                    }
+
+                    pthread_t listenerThread;
+                    if (pthread_create(&listenerThread, NULL, server_listener_thread, window) != 0) {
+                        printf("Failed to create listener thread\n");
+                    } else {
+                        printf("Listener thread started\n");
+                    }
+                    pthread_detach(listenerThread);
+
+
+
+
                 } else {
                     window->canStart = false;
                     char errorMessage[256];
                     sprintf(errorMessage, "Cannot start the game with %d x %d", window->rowSize, window->colSize);
                     label_set_text(window->errorLabel, errorMessage);
-                    printf("cannot start rows: %d , cols: %d\n", window->rowSize, window->colSize);
+                    printf("rows: %d , cols: %d\n", window->rowSize, window->colSize);
                 }
 
             }
@@ -344,6 +401,7 @@ void draw(Window* window, Screen currentScreen) {
 
 void windowStart(Window* window) {
     if (!window || !window->renderWindow) return;
+
     while (sfRenderWindow_isOpen(window->renderWindow)) {
         handleClick(window);
         draw(window, *window->currentScreen);
@@ -380,7 +438,85 @@ void windowDestroy(Window* window) {
     if (window->rules)rules_destroy(window->rules);
 
     if (window->socket) {
+        pthread_mutex_lock(&window->socketMutex);
+        sfTcpSocket_disconnect(window->socket);
         sfTcpSocket_destroy(window->socket);
+        pthread_mutex_unlock(&window->socketMutex);
     }
+    pthread_mutex_destroy(&window->socketMutex);
     free(window);
 }
+void* server_listener_thread(void* arg) {
+    Window* window = (Window*)arg;
+    sfTcpSocket_setBlocking(window->socket, sfFalse); // Non-blocking mode
+    char buffer[256];
+    size_t received;
+    while (1) {
+        pthread_mutex_lock(&window->socketMutex);
+        if (!window->socket) {
+            printf("Socket is null, exiting thread.\n");
+            pthread_mutex_unlock(&window->socketMutex);
+            break;
+        }
+        sfSocketStatus status = sfTcpSocket_receive(window->socket, buffer, sizeof(buffer) - 1, &received);
+        pthread_mutex_unlock(&window->socketMutex);
+        sfSleep(sfMilliseconds(400));
+        if (status == sfSocketDisconnected) {
+            printf("Disconnected from server\n");
+            break;
+        } else if (status == sfSocketNotReady) {
+            sfSleep(sfMilliseconds(100));
+            continue;
+        } else if (status == sfSocketError) {
+            printf("Socket error occurred\n");
+            break;
+        } else if (status == sfSocketDone) {
+            printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!\n");
+            buffer[received] = '\0';
+            printf("Message from server: %s\n", buffer);
+
+            if (strncmp(buffer, "GRID", 4) == 0) {
+                int rows, cols;
+                sscanf(buffer, "GRID %d %d", &rows, &cols);
+                printf("Setting grid size: %dx%d\n", rows, cols);
+
+                if (!window->game->isRunning) {
+                    pthread_mutex_lock(&window->socketMutex);
+                    window->colSize = cols;
+                    window->rowSize = rows;
+                    game_start_multiplayer(window->game, rows, cols, window->renderWindow, window->socket);
+                    pthread_mutex_unlock(&window->socketMutex);
+                }
+            } else if (strncmp(buffer, "START_GAME", 10) == 0) {
+                printf("Received START_GAME\n");
+                if (!window->game->isRunning) {
+                    pthread_mutex_lock(&window->socketMutex);
+                    game_start_multiplayer(window->game, window->rowSize, window->colSize, window->renderWindow, window->socket);
+                    pthread_mutex_unlock(&window->socketMutex);
+                }
+            }
+        } else {
+            printf("Status error\n");
+        }
+        printf("ani jedno\n");
+    }
+    return NULL;
+}
+
+void send_grid_to_server(sfTcpSocket* socket, int rows, int cols) {
+    if (!socket) {
+        printf("Socket is NULL. Cannot send grid.\n");
+        return;
+    }
+
+    char message[256];
+    snprintf(message, sizeof(message), "GRID %d %d", rows, cols);
+
+    sfSocketStatus status = sfTcpSocket_send(socket, message, strlen(message));
+    if (status != sfSocketDone) {
+        printf("Failed to send grid to server\n");
+    } else {
+        printf("Grid sent to server: %s\n", message);
+    }
+}
+

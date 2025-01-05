@@ -21,10 +21,11 @@ Pexeso* pexesoCreate(const sfVector2f* position, const sfVector2f* size, sfColor
     sfRectangleShape_setPosition(pexeso->shape, *position);
     sfRectangleShape_setSize(pexeso->shape, *size);
     sfRectangleShape_setFillColor(pexeso->shape, backColor);
-    const char* fontPath = "../../Resources/Roboto-Light.ttf";
+    //"../../Resources/Roboto-Light.ttf"
+    const char* fontPath = "C:/pos_sem/Pexeso/Resources/Roboto-Light.ttf";
     pexeso->font = sfFont_createFromFile(fontPath);
     if (!pexeso->font) {
-        printf("Failed to load font: %s\n", fontPath);
+        printf("Pexeso - Failed to load font: %s\n", fontPath);
         free(pexeso);
         return NULL;
     }
