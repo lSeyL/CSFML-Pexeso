@@ -1,4 +1,5 @@
-add_executable(Server server.c)
+add_executable(Server server.c
+        ../../GameLogic/Pexeso.c)
 
 set(CSFML_LIB_DIR "C:/pos_sem/CSFML/lib/gcc")
 set(CSFML_INCLUDE_DIR "C:/pos_sem/CSFML/include")
@@ -13,6 +14,7 @@ find_library(CSFML_GRAPHICS csfml-graphics PATHS ${CSFML_LIB_DIR})
 find_library(CSFML_NETWORK csfml-network PATHS ${CSFML_LIB_DIR})
 
 target_link_libraries(Server
+
         ${CSFML_SYSTEM}
         ${CSFML_WINDOW}
         ${CSFML_GRAPHICS}

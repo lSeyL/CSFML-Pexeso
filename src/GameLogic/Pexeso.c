@@ -2,8 +2,7 @@
 // Created by seil0 on 3. 1. 2025.
 //
 #include "Pexeso.h"
-#include <stdlib.h>
-#include <stdio.h>
+
 
 unsigned int getIntegerBasedOnColor(sfColor color) {
     return (color.a << 24) | (color.r << 16) | (color.g << 8) | color.b;
@@ -22,8 +21,9 @@ Pexeso* pexesoCreate(const sfVector2f* position, const sfVector2f* size, sfColor
     sfRectangleShape_setPosition(pexeso->shape, *position);
     sfRectangleShape_setSize(pexeso->shape, *size);
     sfRectangleShape_setFillColor(pexeso->shape, backColor);
-    //"../../Resources/Roboto-Light.ttf"
-    const char* fontPath = "C:/pos_sem/Pexeso/Resources/Roboto-Light.ttf";
+    // "../../Resources/Roboto-Light.ttf"
+    // "C:/pos_sem/Pexeso/Resources/Roboto-Light.ttf"
+    const char* fontPath = "../../Resources/Roboto-Light.ttf";
     pexeso->font = sfFont_createFromFile(fontPath);
     if (!pexeso->font) {
         printf("Pexeso - Failed to load font: %s\n", fontPath);
@@ -57,6 +57,7 @@ void handleClickOnCard(Pexeso* pexeso, const sfEvent* event) {
         if (isClicked(pexeso, &mousePos)) {
             if (!pexeso->revealed && !pexeso->wasFound) {
                 reveal(pexeso);
+                //printf("ID: %d revealed.\n", getID(pexeso));
             }
         }
     }

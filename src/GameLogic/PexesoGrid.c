@@ -43,7 +43,10 @@ void pexeso_grid_generate(PexesoGrid* grid) {
             int index = row * grid->columns + col;
             sfVector2f position = {grid->startPosition.x + col * (grid->pexesoSize.x + 10),
                                    grid->startPosition.y + row * (grid->pexesoSize.y + 10)};
-            grid->pexesoObjects[index] = pexesoCreate(&position, &grid->pexesoSize, sfBlack, pairs[index].color, pairs[index].label);
+             Pexeso* pex = pexesoCreate(&position, &grid->pexesoSize, sfBlack, pairs[index].color, pairs[index].label);
+             setID(pex, index);
+             grid->pexesoObjects[index] = pex;
+             printf("Card index: %d\n", getID(pex));
         }
     }
 

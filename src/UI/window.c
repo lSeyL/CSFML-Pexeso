@@ -7,7 +7,7 @@
 Window* window_create() {
     Window* window = (Window*)malloc(sizeof(Window));
     window->currentScreen = (Screen*)malloc(sizeof(Screen));
-    window->font = sfFont_createFromFile("C:/pos_sem/Pexeso/Resources/Roboto-Light.ttf");
+    window->font = sfFont_createFromFile("../../Resources/Roboto-Light.ttf");
     if (!window->font) {
         printf("Window - Failed to load font\n");
         return NULL;
@@ -230,34 +230,7 @@ void handleClick(Window *window) {
                 printf("Joining...\n");
                 //*window->currentScreen = MULTI_PLAYER_TRYJOIN;
                 *window->currentScreen = MULTI_PLAYER_STARTED;
-                pthread_mutex_lock(&window->socketMutex);
-                window->socket = sfTcpSocket_create();
-                if (!window->socket) {
-                    printf("Failed to create socket\n");
-                    char errorMessage[256];
-                    sprintf(errorMessage, "Failed to create socket.");
-                    label_set_text(window->errorLabel, errorMessage);
-                    pthread_mutex_unlock(&window->socketMutex);
-                    return;
-                }
-                sfIpAddress serverAddress = sfIpAddress_fromString("127.0.0.1");
-                sfSocketStatus status = sfTcpSocket_connect(window->socket, serverAddress, 53000, sfSeconds(5.0f));
-                if (status != sfSocketDone) {
-                    printf("Failed to connect to server\n");
-                    char errorMessage[256];
-                    sprintf(errorMessage, "Failed to connect to server.");
-                    label_set_text(window->errorLabel, errorMessage);
-                    sfTcpSocket_destroy(window->socket);
-                    window->socket = NULL;
-                    return;
-                }
-                pthread_mutex_unlock(&window->socketMutex);
-                printf("Hello!\n");
-                pthread_t listenerThread;
-                pthread_create(&listenerThread, NULL, server_listener_thread, window);
-                pthread_detach(listenerThread);
-                printf("Hiiii!\n");
-
+                create_listener(window);
             }
         }
 
@@ -279,38 +252,10 @@ void handleClick(Window *window) {
                     *window->currentScreen = MULTI_PLAYER_STARTED;
                     if (window->isHost) {
                         printf("Hosting server...\n");
-                        if (system("start Server.exe") == -1) {
-                            printf("Failed to start the server.\n");
-                            return;
-                        }
-                        window->socket = sfTcpSocket_create();
-                        if (!window->socket) {
-                            printf("Failed to create socket\n");
-                            return;
-                        }
-                        sfIpAddress serverAddress = sfIpAddress_fromString("127.0.0.1");
-                        sfSocketStatus status = sfTcpSocket_connect(window->socket, serverAddress, 53000, sfSeconds(5.0f));
-                        if (status != sfSocketDone) {
-                            printf("Failed to connect to the server\n");
-                            sfTcpSocket_destroy(window->socket);
-                            window->socket = NULL;
-                            return;
-                        }
-
+                        create_listener(window);
                         send_grid_to_server(window->socket, window->rowSize, window->colSize);
 
                     }
-
-                    pthread_t listenerThread;
-                    if (pthread_create(&listenerThread, NULL, server_listener_thread, window) != 0) {
-                        printf("Failed to create listener thread\n");
-                    } else {
-                        printf("Listener thread started\n");
-                    }
-                    pthread_detach(listenerThread);
-
-
-
 
                 } else {
                     window->canStart = false;
@@ -331,7 +276,7 @@ void handleClick(Window *window) {
         }
         if (*window->currentScreen == MULTI_PLAYER_STARTED) {
             //printf("game handle event\n");
-            game_handle_event(window->game, &event);
+            game_handle_event_multiplayer(window->game, &event);
         }
     }
 }
@@ -447,6 +392,37 @@ void windowDestroy(Window* window) {
     pthread_mutex_destroy(&window->socketMutex);
     free(window);
 }
+
+void create_listener(Window* window)
+{
+    pthread_mutex_lock(&window->socketMutex);
+    window->socket = sfTcpSocket_create();
+    if (!window->socket) {
+        printf("Failed to create socket\n");
+        char errorMessage[256];
+        sprintf(errorMessage, "Failed to create socket.");
+        label_set_text(window->errorLabel, errorMessage);
+        pthread_mutex_unlock(&window->socketMutex);
+        return;
+    }
+    sfIpAddress serverAddress = sfIpAddress_fromString("127.0.0.1");
+    sfSocketStatus status = sfTcpSocket_connect(window->socket, serverAddress, 53000, sfSeconds(5.0f));
+    if (status != sfSocketDone) {
+        printf("Failed to connect to the server\n");
+        sfTcpSocket_destroy(window->socket);
+        window->socket = NULL;
+        return;
+    }
+    pthread_mutex_unlock(&window->socketMutex);
+    pthread_t listenerThread;
+    if (pthread_create(&listenerThread, NULL, server_listener_thread, window) != 0) {
+        printf("Failed to create listener thread\n");
+    } else {
+        printf("Listener thread started\n");
+    }
+    pthread_detach(listenerThread);
+}
+
 void* server_listener_thread(void* arg) {
     Window* window = (Window*)arg;
     sfTcpSocket_setBlocking(window->socket, sfFalse); // Non-blocking mode
@@ -493,6 +469,23 @@ void* server_listener_thread(void* arg) {
                     pthread_mutex_lock(&window->socketMutex);
                     game_start_multiplayer(window->game, window->rowSize, window->colSize, window->renderWindow, window->socket);
                     pthread_mutex_unlock(&window->socketMutex);
+                }
+            } else if(strncmp(buffer, "CARD", 4) == 0) {
+                int id, r;
+                char label;
+                sscanf(buffer, "CARD %d %c %d", &id, &label, &r);
+
+                // Update card state locally
+                for (int i = 0; i < window->game->grid->rows * window->game->grid->columns; ++i) {
+
+                    Pexeso* card = (Pexeso *) &window->game->grid->pexesoObjects[i];
+                    sfColor color = sfRectangleShape_getFillColor(card->shape);
+                    if (card->id == id) {
+                        card->label = label;
+                        //card->frontColor = r;
+                        card->frontColor = color;
+                        break;
+                    }
                 }
             }
         } else {

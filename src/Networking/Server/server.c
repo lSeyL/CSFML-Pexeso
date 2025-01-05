@@ -25,6 +25,9 @@ void* handle_client(void* arg) {
     free(args);
 
     printf("Client connected!\n");
+    pthread_mutex_lock(&server->clientMutex);
+    send_full_grid_state(server, client);
+    pthread_mutex_unlock(&server->clientMutex);
 
     char data[256];
     size_t received;
@@ -50,8 +53,10 @@ void* handle_client(void* arg) {
 
             // Broadcast the updated grid dimensions to all clients
             broadcast_message(server, data);
-        } else {
-            printf("Unexpected first message: %s\n", data);
+        } else if (strncmp(data, "CARD", 4) == 0) {
+            broadcast_message(server, data);
+        } else if (strncmp(data, "START_GAME", 10) == 0) {
+            broadcast_message(server, data);
         }
     } else {
         printf("Failed to receive first message from client\n");
@@ -108,6 +113,21 @@ void* handle_client(void* arg) {
 
     sfTcpSocket_destroy(client);
     return NULL;
+}
+
+void send_full_grid_state(Server* server, sfTcpSocket* client) {
+    char message[256];
+    snprintf(message, sizeof(message), "GRID %d %d", server->gridRows, server->gridCols);
+    sfTcpSocket_send(client, message, strlen(message));
+
+    for (int i = 0; i < server->gridRows * server->gridCols; ++i) {
+        snprintf(message, sizeof(message), "CARD %d %c %d", getID(server->currentGrid->pexesoObjects[i]),
+                 getLabel(server->currentGrid->pexesoObjects[i]),
+                 getIntegerBasedOnColor(*getColor(server->currentGrid->pexesoObjects[i])));
+        sfTcpSocket_send(client, message, strlen(message));
+    }
+
+    printf("Full grid state sent to client.\n");
 }
 
 int main() {

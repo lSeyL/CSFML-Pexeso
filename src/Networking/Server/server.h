@@ -11,14 +11,18 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+#include "../../GameLogic/PexesoGrid.h"
+#include "../../GameLogic/Pexeso.h"
 #define MAX_CLIENTS 10
 
 typedef struct {
     sfTcpSocket* clients[MAX_CLIENTS];
-    int clientCount;
     pthread_mutex_t clientMutex;
+    int clientCount;
     int gridRows;
     int gridCols;
+    PexesoGrid* currentGrid;
+    sfBool isGameRunning;
 } Server;
 
 typedef struct {
@@ -27,5 +31,6 @@ typedef struct {
 } ClientHandlerArgs;
 
 void* handle_client(void* client_socket);
+void send_full_grid_state(Server* server, sfTcpSocket* client);
 
 #endif //PEXESO_SERVER_H

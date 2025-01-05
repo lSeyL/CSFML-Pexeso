@@ -30,7 +30,7 @@ PexesoPair* pexeso_pairs_generate(int rows, int columns) {
     int labelCount = sizeof(labels) / sizeof(labels[0]);
 
     if (pairCount > colorCount * labelCount) {
-        printf("Error: Insufficient unique pairs to support the grid size.\n");
+        printf("Error: Not enough pairs?\n");
         free(pairs);
         return NULL;
     }

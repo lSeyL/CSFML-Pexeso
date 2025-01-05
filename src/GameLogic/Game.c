@@ -163,6 +163,7 @@ void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* wind
     game_start_singleplayer(game, rows, cols, window);
 
     // Send game configuration to server
+    /*
     char message[256];
     sprintf(message, "START_GAME %d %d", rows, cols);
     sfSocketStatus status = sfTcpSocket_send(socket, message, strlen(message));
@@ -170,6 +171,16 @@ void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* wind
         game->isRunning = false;
         printf("Failed to send game configuration to server\n");
         return;
+    }
+     */
+    char message[256];
+    snprintf(message, sizeof(message), "GRID %d %d", rows, cols);
+    sfTcpSocket_send(socket, message, strlen(message));
+
+    for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
+        Pexeso* card = (Pexeso *) &game->grid->pexesoObjects[i];
+        snprintf(message, sizeof(message), "CARD %d %c %d", card->id, card->label, getIntegerBasedOnColor(card->frontColor));
+        sfTcpSocket_send(socket, message, strlen(message));
     }
 
     game->isRunning = true;
@@ -200,10 +211,28 @@ void game_handle_event_multiplayer(Game* game, const sfEvent* event) {
     // Send card click to server
     if (event->type == sfEvtMouseButtonPressed) {
         sfVector2f mousePos = {event->mouseButton.x, event->mouseButton.y};
-        char message[64];
-        sprintf(message, "CARD_CLICK %.0f %.0f", mousePos.x, mousePos.y);
-        sfTcpSocket_send(game->socket, message, strlen(message));
+
+        // Find the clicked card
+        for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
+            Pexeso* card = (Pexeso *) &game->grid->pexesoObjects[i];
+            sfFloatRect cardBounds = sfRectangleShape_getGlobalBounds(card->shape);
+
+            if (sfFloatRect_contains(&cardBounds, mousePos.x, mousePos.y)) {
+                printf("Card clicked: ID=%d, Label=%c\n", card->id, card->label);
+
+                // Send card click to the server
+                char message[64];
+                sprintf(message, "CARD_CLICK %d", card->id);
+                sfTcpSocket_send(game->socket, message, strlen(message));
+
+                // Process card reveal locally
+                reveal(card);
+                //card->isRevealed = true;
+                break;
+            }
+        }
     }
+
 }
 
 void game_draw(Game* game, sfRenderWindow* window) {

@@ -64,8 +64,9 @@ void draw(Window* window, Screen currentScreen);
 void windowStart(Window* window);
 void windowDestroy(Window* window);
 
+void create_listener(Window* window);
 void* server_listener_thread(void* arg);
-void* networking_thread(void* arg);
+//void* networking_thread(void* arg);
 void send_grid_to_server(sfTcpSocket* socket, int rows, int cols);
 
 #endif //PEXESO_WINDOW_H
