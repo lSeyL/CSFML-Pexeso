@@ -12,7 +12,6 @@
 #include <stdlib.h>
 
 #include "../../GameLogic/PexesoGrid.h"
-#include "../../GameLogic/Pexeso.h"
 #define MAX_CLIENTS 10
 
 typedef struct {

@@ -11,7 +11,7 @@ void broadcast_message(Server* server, const char* message) {
         if (sfTcpSocket_send(server->clients[i], message, strlen(message)) != sfSocketDone) {
             printf("Failed to send message to client %d\n", i);
         } else {
-            printf("Message sent to client: %s\n", message);
+            printf("[BROADCAST] - Message sent to clients: %s\n", message);
         }
     }
     pthread_mutex_unlock(&server->clientMutex);
@@ -25,54 +25,40 @@ void* handle_client(void* arg) {
     free(args);
 
     printf("Client connected!\n");
-    pthread_mutex_lock(&server->clientMutex);
-    send_full_grid_state(server, client);
-    pthread_mutex_unlock(&server->clientMutex);
-
-    char data[256];
-    size_t received;
-
-    int isHost = 0; // Determine if this client is the host
 
     // Wait for the first message from the client
-    if (sfTcpSocket_receive(client, data, sizeof(data) - 1, &received) == sfSocketDone) {
-        data[received] = '\0'; // Null-terminate the received data
-        printf("First message from client: %s\n", data);
-
-        if (strncmp(data, "GRID", 4) == 0) {
-            int rows, cols;
-            sscanf(data, "GRID %d %d", &rows, &cols);
-
-            pthread_mutex_lock(&server->clientMutex);
-            server->gridRows = rows;
-            server->gridCols = cols;
-            isHost = 1; // Mark this client as the host
-            pthread_mutex_unlock(&server->clientMutex);
-
-            printf("Set grid dimensions to %dx%d from host\n", rows, cols);
-
-            // Broadcast the updated grid dimensions to all clients
-            broadcast_message(server, data);
-        } else if (strncmp(data, "CARD", 4) == 0) {
-            broadcast_message(server, data);
-        } else if (strncmp(data, "START_GAME", 10) == 0) {
-            broadcast_message(server, data);
-        }
-    } else {
+    char data[256];
+    size_t received;
+    if (sfTcpSocket_receive(client, data, sizeof(data) - 1, &received) != sfSocketDone) {
         printf("Failed to receive first message from client\n");
         sfTcpSocket_destroy(client);
         return NULL;
     }
 
-    // Inform the client of the current grid dimensions
-    char message[256];
-    snprintf(message, sizeof(message), "GRID %d %d", server->gridRows, server->gridCols);
-    if (sfTcpSocket_send(client, message, strlen(message)) != sfSocketDone) {
-        printf("Failed to send grid dimensions to client\n");
-        sfTcpSocket_destroy(client);
-        return NULL;
+    data[received] = '\0'; // Null-terminate the received data
+    printf("First message from client: %s\n", data);
+
+    if (strncmp(data, "GRID", 4) == 0) {
+        int rows, cols;
+        sscanf(data, "GRID %d %d", &rows, &cols);
+
+        pthread_mutex_lock(&server->clientMutex);
+        server->gridRows = rows;
+        server->gridCols = cols;
+        pthread_mutex_unlock(&server->clientMutex);
+
+        printf("Set grid dimensions to %dx%d from host\n", rows, cols);
+
+        // Broadcast the updated grid dimensions to all clients
+        broadcast_message(server, data);
+
+        // Send the full grid state to the client
+        pthread_mutex_lock(&server->clientMutex);
+        //send_full_grid_state(server, client);
+        pthread_mutex_unlock(&server->clientMutex);
+    } else {
+        printf("Unexpected first message: %s\n", data);
     }
-    printf("Message sent to client: %s\n", message);
 
     // Handle subsequent messages from the client
     while (1) {
@@ -98,6 +84,16 @@ void* handle_client(void* arg) {
             broadcast_message(server, data);
         } else if (strncmp(data, "START_GAME", 10) == 0) {
             broadcast_message(server, data);
+        } else if (strncmp(data, "CARD_CLICK", 4) == 0) {
+            int cardID;
+            if (sscanf(data, "CARD_CLICK %d", &cardID) == 1) {
+                printf("Received card click: ID=%d\n", cardID);
+
+                // Broadcast the card click to all clients
+                broadcast_message(server, data);
+            } else {
+                printf("Invalid CARD message: %s\n", data);
+            }
         }
     }
 
@@ -113,21 +109,6 @@ void* handle_client(void* arg) {
 
     sfTcpSocket_destroy(client);
     return NULL;
-}
-
-void send_full_grid_state(Server* server, sfTcpSocket* client) {
-    char message[256];
-    snprintf(message, sizeof(message), "GRID %d %d", server->gridRows, server->gridCols);
-    sfTcpSocket_send(client, message, strlen(message));
-
-    for (int i = 0; i < server->gridRows * server->gridCols; ++i) {
-        snprintf(message, sizeof(message), "CARD %d %c %d", getID(server->currentGrid->pexesoObjects[i]),
-                 getLabel(server->currentGrid->pexesoObjects[i]),
-                 getIntegerBasedOnColor(*getColor(server->currentGrid->pexesoObjects[i])));
-        sfTcpSocket_send(client, message, strlen(message));
-    }
-
-    printf("Full grid state sent to client.\n");
 }
 
 int main() {

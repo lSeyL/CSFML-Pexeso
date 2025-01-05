@@ -447,7 +447,6 @@ void* server_listener_thread(void* arg) {
             printf("Socket error occurred\n");
             break;
         } else if (status == sfSocketDone) {
-            printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!\n");
             buffer[received] = '\0';
             printf("Message from server: %s\n", buffer);
 
@@ -470,23 +469,24 @@ void* server_listener_thread(void* arg) {
                     game_start_multiplayer(window->game, window->rowSize, window->colSize, window->renderWindow, window->socket);
                     pthread_mutex_unlock(&window->socketMutex);
                 }
-            } else if(strncmp(buffer, "CARD", 4) == 0) {
-                int id, r;
-                char label;
-                sscanf(buffer, "CARD %d %c %d", &id, &label, &r);
 
-                // Update card state locally
-                for (int i = 0; i < window->game->grid->rows * window->game->grid->columns; ++i) {
+            } else if((strncmp(buffer, "CARD_CLICK", 4) == 0)) {
+                int cardID;
+                if (sscanf(buffer, "CARD_CLICK %d", &cardID) == 1) {
+                    printf("Server says card clicked: ID=%d\n", cardID);
 
-                    Pexeso* card = (Pexeso *) &window->game->grid->pexesoObjects[i];
-                    sfColor color = sfRectangleShape_getFillColor(card->shape);
-                    if (card->id == id) {
-                        card->label = label;
-                        //card->frontColor = r;
-                        card->frontColor = color;
-                        break;
+                    // Reveal the card locally
+                    for (int i = 0; i < window->game->grid->rows * window->game->grid->columns; ++i) {
+                        Pexeso *card = window->game->grid->pexesoObjects[i];
+                        if (card->id == cardID) {
+                            card->revealed = true;
+                            reveal(card);// Reveal the card
+                            printf("Revealing card ID=%d locally\n", cardID);
+                            break;
+                        }
                     }
                 }
+
             }
         } else {
             printf("Status error\n");

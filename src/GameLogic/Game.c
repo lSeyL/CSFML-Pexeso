@@ -172,38 +172,25 @@ void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* wind
         printf("Failed to send game configuration to server\n");
         return;
     }
-     */
-    char message[256];
-    snprintf(message, sizeof(message), "GRID %d %d", rows, cols);
-    sfTcpSocket_send(socket, message, strlen(message));
+    */
 
-    for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
-        Pexeso* card = (Pexeso *) &game->grid->pexesoObjects[i];
-        snprintf(message, sizeof(message), "CARD %d %c %d", card->id, card->label, getIntegerBasedOnColor(card->frontColor));
-        sfTcpSocket_send(socket, message, strlen(message));
-    }
-
+ char message[256];
+ snprintf(message, sizeof(message), "GRID %d %d", rows, cols);
+ sfTcpSocket_send(socket, message, strlen(message));
+/*
+ for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
+     Pexeso* card = game->grid->pexesoObjects[i];
+     printf("Sending.. %d\n", card->id);
+     snprintf(message, sizeof(message), "CARD %d", card->id);
+     sfTcpSocket_send(socket, message, strlen(message));
+ }
+*/
     game->isRunning = true;
     printf("Multiplayer game started\n");
 }
 
 void game_handle_event_multiplayer(Game* game, const sfEvent* event) {
     if (!game || !game->isRunning || !game->isMultiplayer) return;
-
-    char buffer[256];
-    size_t received;
-
-    // Receive updates from the server
-    sfSocketStatus status = sfTcpSocket_receive(game->socket, buffer, sizeof(buffer) - 1, &received);
-    if (status == sfSocketDone) {
-        buffer[received] = '\0';
-        printf("Server: %s\n", buffer);
-
-        // Process server message (e.g., update board)
-    } else if (status == sfSocketDisconnected) {
-        printf("Disconnected from server\n");
-        game->isRunning = false;
-    }
 
     // Handle local events
     game_handle_event(game, event);
@@ -212,27 +199,27 @@ void game_handle_event_multiplayer(Game* game, const sfEvent* event) {
     if (event->type == sfEvtMouseButtonPressed) {
         sfVector2f mousePos = {event->mouseButton.x, event->mouseButton.y};
 
-        // Find the clicked card
         for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
-            Pexeso* card = (Pexeso *) &game->grid->pexesoObjects[i];
+            Pexeso* card = game->grid->pexesoObjects[i];
             sfFloatRect cardBounds = sfRectangleShape_getGlobalBounds(card->shape);
 
             if (sfFloatRect_contains(&cardBounds, mousePos.x, mousePos.y)) {
-                printf("Card clicked: ID=%d, Label=%c\n", card->id, card->label);
 
-                // Send card click to the server
+
+                // Send only the card ID
                 char message[64];
-                sprintf(message, "CARD_CLICK %d", card->id);
-                sfTcpSocket_send(game->socket, message, strlen(message));
+                snprintf(message, sizeof(message), "CARD_CLICK %d", card->id);
+                sfSocketStatus status = sfTcpSocket_send(game->socket, message, strlen(message));
+                if (status != sfSocketDone) {
+                    printf("Failed to send card click to server\n");
+                } else {
+                    printf("Card clicked SENT: ID=%d\n", card->id);
+                }
 
-                // Process card reveal locally
-                reveal(card);
-                //card->isRevealed = true;
-                break;
+                break; // Stop after processing the first valid click
             }
         }
     }
-
 }
 
 void game_draw(Game* game, sfRenderWindow* window) {

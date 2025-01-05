@@ -46,7 +46,7 @@ void pexeso_grid_generate(PexesoGrid* grid) {
              Pexeso* pex = pexesoCreate(&position, &grid->pexesoSize, sfBlack, pairs[index].color, pairs[index].label);
              setID(pex, index);
              grid->pexesoObjects[index] = pex;
-             printf("Card index: %d\n", getID(pex));
+             //printf("Card index: %d\n", getID(pex));
         }
     }
 
