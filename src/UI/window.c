@@ -479,8 +479,9 @@ void* server_listener_thread(void* arg) {
                     for (int i = 0; i < window->game->grid->rows * window->game->grid->columns; ++i) {
                         Pexeso *card = window->game->grid->pexesoObjects[i];
                         if (card->id == cardID) {
-                            card->revealed = true;
-                            reveal(card);// Reveal the card
+                            if(!card->revealed){
+                                reveal(card);// Reveal the card
+                            }
                             printf("Revealing card ID=%d locally\n", cardID);
                             break;
                         }

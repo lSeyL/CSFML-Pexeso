@@ -18,6 +18,7 @@ typedef struct {
     sfTcpSocket* clients[MAX_CLIENTS];
     pthread_mutex_t clientMutex;
     int clientCount;
+    int currentClientTurn;
     int gridRows;
     int gridCols;
     PexesoGrid* currentGrid;

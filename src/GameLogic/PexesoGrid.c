@@ -78,4 +78,5 @@ void pexeso_grid_handle_click(PexesoGrid* grid, const sfEvent* event) {
             handleClickOnCard(grid->pexesoObjects[i], event);
         }
     }
+
 }
