@@ -93,6 +93,14 @@ void setters_handleEvent(SetterButtons* dimensionButtons, const sfEvent* event) 
 int getSelected(const SetterButtons* dimensionButtons) {
     return dimensionButtons->selectedIndex + 2;
 }
+
+int getSelectedBase(const SetterButtons* dimensionButtons) {
+    return dimensionButtons->selectedIndex + 1;
+}
+void setDefaultSelectedIndex(SetterButtons* dimensionButtons, size_t index)
+{
+    dimensionButtons->selectedIndex = index;
+}
 void highlightButton(SetterButtons* dimensionButtons, size_t index) {
     for (size_t i = 0; i < dimensionButtons->buttonCount; ++i) {
         if (i == index) {

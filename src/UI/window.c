@@ -41,13 +41,15 @@ Window* window_create() {
         printf("Failed to create row buttons\n");
         return NULL;
     }
-
+    highlightButton(window->rowButtons, 2);
     sfVector2f columnStartPosition = {350, 200};
     window->columnButtons = setterCreateWithNumbers(&columnStartPosition, &buttonSize, 9, window->font);
     if (!window->columnButtons) {
         printf("Failed to create column buttons\n");
         return NULL;
     }
+    highlightButton(    window->columnButtons, 2);
+
     sfVector2f modeStartPosition = {350, 490};
     sfVector2f modeButtonSize = {175, 75};
     const char* modeLabels[] = {"Free", "Timed"};
@@ -56,6 +58,7 @@ Window* window_create() {
         printf("Failed to create mode buttons\n");
         return NULL;
     }
+    highlightButton(window->modeButtons, 0);
     sfVector2f difficultyStartPosition = {350, 390};
     sfVector2f difficultyButtonSize = {175, 75};
     const char* difficultyLabels[] = {"Easy", "Medium", "Hard"};
@@ -64,6 +67,7 @@ Window* window_create() {
         printf("Failed to create difficulty buttons\n");
         return NULL;
     }
+    highlightButton( window->difficultyButtons, 0);
     sfVector2u windowSize = sfRenderWindow_getSize(window->renderWindow);
     sfVector2f headerSize = (sfVector2f) {
             sfTexture_getSize(window->header->texture).x,
@@ -85,7 +89,8 @@ Window* window_create() {
     window->hostGameButton = buttonCreate("../../Resources/button_host-a-game.png", 271, 500);
     window->joinGameButton = buttonCreate("../../Resources/button_join-a-game.png", 674, 500);
     window->okButton = buttonCreate("../../Resources/button_ok.png", 532, 400);
-    if (!window->singlePlayerButton || !window->multiplayerButton || !window->exitButton) {
+    if (!window->singlePlayerButton || !window->multiplayerButton || !window->exitButton || !window->backButton
+            || !window->startButton || !window->hostGameButton || !window->joinGameButton || !window->okButton) {
         printf("Failed to create a button.\n");
         windowDestroy(window);
         return NULL;
@@ -121,13 +126,33 @@ Window* window_create() {
     window->playersLabel = label_create("Players", window->font, (sfVector2f){950, 50}, 50, sfWhite);
     window->errorLabel  = label_create("", window->font, (sfVector2f){280, 275}, 50, sfRed);
     window->infoLabel  = label_create("", window->font, (sfVector2f){280, 275}, 75, sfWhite);
+
+    window->spPlayerTurn  = label_create("", window->font, (sfVector2f){850, 50}, 50, sfWhite);
+    window->spPoints  = label_create("", window->font, (sfVector2f){850, 125}, 45, sfWhite);
+
+    window->timeLabel  = label_create("", window->font, (sfVector2f){850, 250}, 50, sfWhite);
+    window->timeNumLabel  = label_create("", window->font, (sfVector2f){850, 325}, 45, sfWhite);
+
+    if (!window->rowLabel || !window->colLabel || !window->playersLabel || !window->errorLabel
+        || !window->infoLabel  || !window->spPlayerTurn || !window->spPoints || !window->timeLabel || !window->timeNumLabel) {
+        printf("Failed to create a label.\n");
+        windowDestroy(window);
+        return NULL;
+    }
     window->rules = rules_create();
+
     window->game = game_create(window->renderWindow, window->rules);
-    window->colSize = 2;
-    window->rowSize = 2;
+
+    window->colSize = 4;
+    window->rowSize = 4;
     window->socket = NULL;
     pthread_mutex_init(&window->socketMutex, NULL);
     window->isHost = false;
+
+    setDefaultSelectedIndex(window->difficultyButtons, 0);
+    setDefaultSelectedIndex(window->modeButtons, 0);
+    setDefaultSelectedIndex(window->rowButtons, 2);
+    setDefaultSelectedIndex(window->columnButtons, 2);
     return window;
 }
 
@@ -161,21 +186,26 @@ void handleClick(Window *window) {
             setters_handleEvent(window->difficultyButtons, &event);
             window->rowSize = getSelected(window->rowButtons);
             window->colSize = getSelected(window->columnButtons);
+            window->rules->difficulty = getSelectedBase(window->difficultyButtons);
+            window->rules->mode = getSelectedBase(window->modeButtons);
             if (buttonClicked(window->backButton, &event)) {
                 printf("back\n");
                 *window->currentScreen = MAIN_MENU;
             }
             if (buttonClicked(window->startButton, &event)) {
                 if (checkPair(window->rules, window->rowSize, window->colSize)) {
-                    printf("start\n");
+                    printf("Single player game started.\n");
+                    printf("Difficulty : %d.\n", window->rules->difficulty);
+                    printf("Mode : %d.\n", window->rules->mode);
+                    printf("Start with: %dx%d\n", window->rowSize, window->colSize);
                     *window->currentScreen = SINGLE_PLAYER_STARTED;
-                    game_start_singleplayer(window->game, window->colSize, window->rowSize, window->renderWindow);
+                    game_start_singleplayer(window->game, window->colSize, window->rowSize, window->renderWindow, window->rules->difficulty, window->rules->mode);
                 } else {
                     window->canStart = false;
                     char errorMessage[256];
                     sprintf(errorMessage, "Cannot start the game with %d x %d", window->rowSize, window->colSize);
                     label_set_text(window->errorLabel, errorMessage);
-                    printf("cannot start rows: %d , cols: %d\n", window->rowSize, window->colSize);
+                    printf("Cannot start rows: %d , cols: %d\n", window->rowSize, window->colSize);
                 }
 
             }
@@ -273,12 +303,33 @@ void handleClick(Window *window) {
         if (*window->currentScreen == SINGLE_PLAYER_STARTED) {
             //printf("game handle event\n");
             game_handle_event(window->game, &event);
+            // Refresh points etc
+            char whosTurnText[256];
+            char numPointsText[256];
+            if(window->game->isPlayerTurn){
+                sprintf(whosTurnText, "Player's turn");
+                sprintf(numPointsText, "%d points", window->game->playerPoints);
+            } else {
+                sprintf(whosTurnText, "Bot's turn");
+                sprintf(numPointsText, "%d points", window->game->botPoints);
+            }
+            label_set_text(window->spPlayerTurn, whosTurnText);
+            label_set_text(window->spPoints, numPointsText);
+            if(window->game->mode == 2)
+            {
+                char timeLeftAsString[10];
+                update_timer_label(window->game, timeLeftAsString, sizeof(timeLeftAsString));
+                label_set_text(window->timeLabel, "Time left");
+                label_set_text(window->timeNumLabel, timeLeftAsString);
+            }
             if(window->game->isRunning)
             {
                 if(window->game->win) {
                     *window->currentScreen = WIN_SCREEN;
                     char infoMessage[256];
-                    sprintf(infoMessage, "Game finished", window->rowSize, window->colSize);
+                    bool playerWon = window->game->playerPoints > window->game->botPoints ;
+                    sprintf(infoMessage, "%s won the game.",
+                            playerWon ? "Player" : "Bot");
                     label_set_text(window->infoLabel, infoMessage);
                 }
             }
@@ -316,6 +367,7 @@ void draw(Window* window, Screen currentScreen) {
             label_draw(window->errorLabel, window->renderWindow);
         }
 
+
     } else if (currentScreen == MULTI_PLAYER) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
         sfRenderWindow_drawRectangleShape(window->renderWindow, window->backButton->shape, NULL);
@@ -348,6 +400,12 @@ void draw(Window* window, Screen currentScreen) {
         sfRenderWindow_drawRectangleShape(window->renderWindow, window->backButton->shape, NULL);
     } else if (currentScreen == SINGLE_PLAYER_STARTED) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
+        label_draw(window->spPlayerTurn, window->renderWindow);
+        label_draw(window->spPoints, window->renderWindow);
+        if(window->game->mode == 2) {
+            label_draw(window->timeLabel, window->renderWindow);
+            label_draw(window->timeNumLabel, window->renderWindow);
+        }
         game_draw(window->game, window->renderWindow);
     }else if (currentScreen == MULTI_PLAYER_STARTED) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
@@ -361,7 +419,6 @@ void draw(Window* window, Screen currentScreen) {
 
 void windowStart(Window* window) {
     if (!window || !window->renderWindow) return;
-
     while (sfRenderWindow_isOpen(window->renderWindow)) {
         handleClick(window);
         draw(window, *window->currentScreen);
@@ -520,11 +577,11 @@ void* server_listener_thread(void* arg) {
             int cardID_1, cardID_2;
             if (sscanf(buffer,"PAIRED_CARDS %d %d", &cardID_1, &cardID_2) == 2) {
                 printf("Received matching IDs ID_1=%d, ID_2=%d\n", cardID_1, cardID_2);
-                //Pexeso* pex1 =  window->game->grid->pexesoObjects[cardID_1];
-                //Pexeso* pex2 =  window->game->grid->pexesoObjects[cardID_2];
+                Pexeso* pex1 =  window->game->grid->pexesoObjects[cardID_1];
+                Pexeso* pex2 =  window->game->grid->pexesoObjects[cardID_2];
 
-                //setWasFound(pex1);
-               // setWasFound(pex2);
+                setWasFound(pex1);
+                setWasFound(pex2);
 
             }
         }

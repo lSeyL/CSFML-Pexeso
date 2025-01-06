@@ -2,7 +2,7 @@
 // Created by seil0 on 3. 1. 2025.
 //
 #include "Rules.h"
-#include <stdlib.h>
+
 
 Rules* rules_create() {
     Rules* rules = (Rules*)malloc(sizeof(Rules));
@@ -11,7 +11,7 @@ Rules* rules_create() {
     rules->isPaired = false;
     rules->difficulty = 1;
     rules->mode = 0; // 0 - unlimited, 1 - time-limited
-
+    rules->isBotGame = false;
     return rules;
 }
 void rules_destroy(Rules* rules) {
@@ -21,7 +21,6 @@ void rules_destroy(Rules* rules) {
 }
 bool checkPair(Rules* rules, int rows, int columns) {
     if (!rules) return false;
-
     if ((rows * columns) % 2 != 0) {
         rules->isPaired = false;
     } else {

@@ -43,6 +43,10 @@ typedef struct {
     Label* colLabel;
     Label* errorLabel;
     Label* infoLabel;
+    Label* spPlayerTurn;
+    Label* spPoints;
+    Label* timeLabel;
+    Label* timeNumLabel;
     Label* playersLabel;
     Screen* currentScreen;
     Header* header;

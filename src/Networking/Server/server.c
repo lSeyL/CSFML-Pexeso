@@ -50,11 +50,9 @@ void* handle_client(void* arg) {
         printf("Set grid dimensions to %dx%d from host\n", rows, cols);
 
         broadcast_message(server, data);
-
-
-        pthread_mutex_lock(&server->clientMutex);
+        //pthread_mutex_lock(&server->clientMutex);
         //send_full_grid_state(server, client);
-        pthread_mutex_unlock(&server->clientMutex);
+        //pthread_mutex_unlock(&server->clientMutex);
     } else {
         printf("Unexpected first message: %s\n", data);
     }
@@ -67,7 +65,7 @@ void* handle_client(void* arg) {
         }
 
         data[received] = '\0';
-        printf("Received from client: %s\n", data);
+        printf("Received from client: %s", data);
 
         // Process messages as usual
         if (strncmp(data, "GRID", 4) == 0) {

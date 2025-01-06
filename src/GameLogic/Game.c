@@ -4,7 +4,7 @@
 #include "Game.h"
 
 
-Game* game_create() {
+Game* game_create(sfRenderWindow* renderWindow, Rules* rules) {
     Game* game = (Game*)malloc(sizeof(Game));
     if (!game) return NULL;
     game->win = false;
@@ -14,6 +14,8 @@ Game* game_create() {
     game->isRunning = false;
     game->isMultiplayer = false;
     game->socket = NULL;
+    game->playerPoints = 0;
+    game->botPoints = 0;
     return game;
 }
 
@@ -26,56 +28,67 @@ void game_destroy(Game* game) {
     }
 }
 
-void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* window) {
+void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* window, int difficulty, int mode) {
     game->rowSize = rows;
     game->colSize = cols;
     game->isPlayerTurn = true;
+    game->difficulty = difficulty;
+    game->mode = mode;
+    game->memoryCount = 0;
+    memset(game->memory, -1, sizeof(game->memory));
+    if(game->mode == 2 ){
+        game->timeLimit = 10 * rows + 10 * cols;
+        printf("Time limit set to: %d \n", game->timeLimit);
+        game->gameClock = sfClock_create();
+        if (!game->gameClock) {
+            printf("Failed to create game clock.\n");
+            return;
+        }
+    }
 
-    // Define screen dimensions and padding
+
     float windowWidth = sfRenderWindow_getSize(window).x;
     float windowHeight = sfRenderWindow_getSize(window).y;
-    float rightPadding = 400; // Space on the right side of the screen
-    float leftPadding = 10;   // Space on the left side of the screen
-    float topPadding = 50;    // Space at the top of the screen
-    float bottomPadding = 100; // Space at the bottom of the screen
+    float rightPadding = 400;
+    float leftPadding = 10;
+    float topPadding = 50;
+    float bottomPadding = 100;
 
-    // Calculate the usable area for the grid
     float usableWidth = windowWidth - leftPadding - rightPadding;
     float usableHeight = windowHeight - topPadding - bottomPadding;
 
-    // Calculate tile size based on the grid dimensions
     float tileWidth = usableWidth / cols;
     float tileHeight = usableHeight / rows;
     float tileSize = tileWidth < tileHeight ? tileWidth : tileHeight;
 
-    // Ensure tiles are smaller if the grid doesn't fit
     if (tileSize * rows > usableHeight || tileSize * cols > usableWidth) {
         tileSize = (usableHeight / rows) < (usableWidth / cols) ? (usableHeight / rows) : (usableWidth / cols);
     }
 
-    // Clamp the tile size (optional, remove if unnecessary)
     if (tileSize < 50.0f) tileSize = 50.0f;
 
-    // Calculate grid dimensions
     float gridWidth = tileSize * cols;
     float gridHeight = tileSize * rows;
 
-    // Start position (centered within the usable area)
     float startX = leftPadding + (usableWidth - gridWidth) / 2;
     float startY = topPadding + (usableHeight - gridHeight) / 2;
 
     sfVector2f startPosition = {startX, startY};
     sfVector2f size = {tileSize, tileSize};
-    // Create the grid
 
+    if(!game->isMultiplayer){
+        printf("Game is not multiplayer, creating grid locally.\n");
+
+    }
     game->grid = pexeso_grid_create(rows, cols, startPosition, size);
 
     if (!game->grid) {
         printf("Failed to create Pexeso grid\n");
         return;
     }
+
+    //debug_grid_mapping(game);
     game->isRunning = true;
-    pexeso_grid_shuffle(game->grid);
 }
 
 void game_handle_event(Game* game, const sfEvent* event) {
@@ -112,8 +125,13 @@ void game_handle_event(Game* game, const sfEvent* event) {
         revealedCards[0] = revealedCards[1] = NULL;
         waitingToHide = false;
         inputDisabled = false;
-        game->disableSend = false;
+        if (!game->isMultiplayer) {
+            game->isPlayerTurn = !game->isPlayerTurn;
+            printf("Turn switched: %s\n", game->isPlayerTurn ? "Player" : "Bot");
+        }
     }
+
+
 
     if (inputDisabled) {
         return; // Skip further input processing if input is disabled
@@ -127,9 +145,15 @@ void game_handle_event(Game* game, const sfEvent* event) {
         }
     } else {
         // Bot's turn
-        if (!game->isMultiplayer) {
+        printf("Bot turn\n");
+        if (!game->isMultiplayer && !waitingToHide && !inputDisabled) {
             bot_take_turn(game, revealTimer, revealedCards, &inputDisabled, &waitingToHide);
-            game->isPlayerTurn = true; // Switch back to the player
+
+            // Switch turn back to the player only if no further actions are pending
+            if (!waitingToHide && !inputDisabled) {
+                game->isPlayerTurn = true;
+                printf("Turn switched back to Player.\n");
+            }
         }
     }
 }
@@ -137,6 +161,13 @@ void game_handle_event(Game* game, const sfEvent* event) {
 bool checkWinCondition(Game* game) {
     if (!game || !game->grid) {
         return false;
+    }
+    if(game->mode == 2 ) {
+        if(get_remaining_time(game) == 0) {
+            printf("Out of time.\n");
+            game->win = true;
+            return true;
+        }
     }
     for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
         Pexeso* card = game->grid->pexesoObjects[i];
@@ -154,22 +185,97 @@ void bot_take_turn(Game* game, sfClock* revealTimer, Pexeso* revealedCards[2], b
     printf("Bot's turn!\n");
 
     int revealedCount = 0;
+    int gridSize = game->grid->rows * game->grid->columns;
 
-    // Randomly reveal two cards
-    for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
-        Pexeso* card = game->grid->pexesoObjects[i];
-        if (!card->revealed && revealedCount < 2) {
-            reveal(card);
-            revealedCards[revealedCount++] = card;
-            printf("Bot revealed card: ID=%d, Label=%c\n", card->id, card->label);
+    if (game->difficulty > 1) {
+        printf("Difficulty: %d\n", game->difficulty);
+        bot_sync_memory(game);
+        for (int i = 0; i < game->memoryCount; ++i) {
+            Pexeso* card1 = game->grid->pexesoObjects[game->memory[i].cardID];
+            for (int j = i + 1; j < game->memoryCount; ++j) {
+                Pexeso* card2 = game->grid->pexesoObjects[game->memory[j].cardID];
+                if (!card1->wasFound && !card2->wasFound &&
+                    game->memory[i].label == game->memory[j].label &&
+                    game->memory[i].color == game->memory[j].color) {
+                    printf("Match found in memory.");
+                    reveal(card1);
+                    revealedCards[revealedCount++] = card1;
+                    reveal(card2);
+                    revealedCards[revealedCount++] = card2;
+                    break;
+                } else {
+                    printf("No match in memory.");
+                }
+            }
+
+            if (revealedCount == 2) break; // Stop after revealing two cards
         }
+    }
 
-        if (revealedCount == 2) break;
+    if (revealedCount < 2) {
+        for (int i = 0; i < gridSize; ++i) {
+            int random = rand() % gridSize;
+            Pexeso* card = game->grid->pexesoObjects[random];
+            if (!card->wasFound && !card->revealed && revealedCount < 2) {
+                reveal(card);
+                bot_remember_card(game, card->id, card->label, getIntegerBasedOnColor(*getColor(card)));
+                revealedCards[revealedCount++] = card;
+                printf("Bot revealed card: ID=%d, Label=%c\n", card->id, card->label);
+            }
+
+            if (revealedCount == 2) break;
+        }
     }
 
     if (revealedCount == 2) {
         *inputDisabled = true;
         game_check_pair(game, revealedCards, waitingToHide, revealTimer);
+    }
+}
+void bot_remember_card(Game* game, int cardID, char label, unsigned int color) {
+    for (int i = 0; i < game->memoryCount; ++i) {
+        if (game->memory[i].cardID == cardID) return;
+    }
+    if (game->memoryCount < MAX_CARDS) {
+        game->memory[game->memoryCount++] = (MemoryCard){
+                .cardID = cardID,
+                .label = label,
+                .color = color,
+                .wasFound = false
+        };
+        printf("Bot remembered card: ID=%d, Label=%c, Color=%u\n", cardID, label, color);
+    }
+}
+
+void bot_mark_cards_found(Game* game, int cardID1, int cardID2) {
+    for (int i = 0; i < game->memoryCount; ++i) {
+        if (game->memory[i].cardID == cardID1 || game->memory[i].cardID == cardID2) {
+            printf("Bot found the cards, setting to true.\n");
+            game->memory[i].wasFound = true;
+        }
+    }
+}
+void bot_sync_memory(Game* game) {
+    int writeIndex = 0;
+
+    for (int i = 0; i < game->memoryCount; ++i) {
+        Pexeso* card = game->grid->pexesoObjects[game->memory[i].cardID];
+        if (!card->wasFound) {
+            game->memory[writeIndex++] = game->memory[i];
+        } else {
+            printf("Removing found card from memory: ID=%d, Label=%c\n",
+                   game->memory[i].cardID, game->memory[i].label);
+        }
+    }
+    game->memoryCount = writeIndex;
+}
+void debug_grid_mapping(Game* game) {
+    printf("Grid Mapping:\n");
+    for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
+        Pexeso* card = game->grid->pexesoObjects[i];
+        printf("Index=%d, ID=%d, Label=%c, Color=%u, wasFound=%s\n",
+               i, card->id, card->label, getIntegerBasedOnColor(*getColor(card)),
+               card->wasFound ? "true" : "false");
     }
 }
 
@@ -180,21 +286,34 @@ void game_handle_revealed_cards(Game* game, Pexeso* revealedCards[2], bool* inpu
         Pexeso* card = game->grid->pexesoObjects[i];
         if (getRevealed(card) && revealedCount < 2) {
             revealedCards[revealedCount++] = card;
+            if(game->difficulty == 3) {
+                printf("Bot remembered player's turn.");
+                bot_remember_card(game, card->id, card->label, getIntegerBasedOnColor(*getColor(card)));
+            }
+
         }
     }
 
     if (revealedCount == 2) {
         *inputDisabled = true;
-        game->disableSend = true; // Disable further clicks
+        game->disableSend = true;
         game_check_pair(game, revealedCards, waitingToHide, revealTimer);
     } else {
-        game->disableSend = false; // Allow new clicks
+        game->disableSend = false;
     }
+
 }
 
 void game_check_pair(Game* game, Pexeso* revealedCards[2], bool* waitingToHide, sfClock* revealTimer) {
     if (getIntegerBasedOnColor(*getColor(revealedCards[0])) == getIntegerBasedOnColor(*getColor(revealedCards[1])) &&
         getLabel(revealedCards[0]) == getLabel(revealedCards[1])) {
+        if(game->isPlayerTurn) {
+            game->playerPoints += 100;
+        } else {
+            game->botPoints += 100;
+            bot_mark_cards_found(game, revealedCards[0]->id, revealedCards[1]->id);
+        }
+        printf("Bot [%d points], Player [%d points]\n",game->botPoints, game->playerPoints);
         printf("Match found!\n");
         hide(revealedCards[0]);
         hide(revealedCards[1]);
@@ -230,6 +349,16 @@ void game_reset_revealed_cards(Game* game,Pexeso* revealedCards[2], bool* inputD
         game->disableSend = false;
     }
 }
+int get_remaining_time(Game* game) {
+    if (!game->gameClock) return 0;
+    sfTime elapsed = sfClock_getElapsedTime(game->gameClock);
+    int remainingTime = game->timeLimit - sfTime_asSeconds(elapsed);
+    return (remainingTime > 0) ? remainingTime : 0;
+}
+void update_timer_label(Game* game, char* buffer, size_t bufferSize) {
+    int remainingTime = get_remaining_time(game);
+    snprintf(buffer, bufferSize, "%02d:%02d", remainingTime / 60, remainingTime % 60);
+}
 
 void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* window, sfTcpSocket* socket) {
     if (game->isRunning) {
@@ -239,7 +368,7 @@ void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* wind
     game->isMultiplayer = true;
     game->socket = socket;
     printf("Initializing multiplayer grid: rows=%d, cols=%d\n", rows, cols);
-    game_start_singleplayer(game, rows, cols, window);
+    game_start_singleplayer(game, rows, cols, window, game->difficulty, game->mode);
  char message[256];
  snprintf(message, sizeof(message), "GRID %d %d\n", rows, cols);
  sfTcpSocket_send(socket, message, strlen(message));

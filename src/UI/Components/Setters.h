@@ -17,7 +17,9 @@ SetterButtons* setterCreateWithNumbers(const sfVector2f* startPosition, const sf
 SetterButtons* setterCreateWithName(const sfVector2f* startPosition, const sfVector2f* buttonSize, const char** labels, size_t labelCount, const sfFont* font);
 void drawSetters(SetterButtons* dimensionButtons, sfRenderWindow* window);
 void setters_handleEvent(SetterButtons* dimensionButtons, const sfEvent* event);
+void setDefaultSelectedIndex(SetterButtons* dimensionButtons, size_t index);
 void highlightButton(SetterButtons* dimensionButtons, size_t index);
 int getSelected(const SetterButtons* dimensionButtons);
+int getSelectedBase(const SetterButtons* dimensionButtons);
 void settersDestroy(SetterButtons* dimensionButtons);
 #endif //PEXESO_SETTERBUTTONS_H
