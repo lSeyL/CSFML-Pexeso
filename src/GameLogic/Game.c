@@ -185,6 +185,13 @@ void game_check_pair(Game* game,Pexeso* revealedCards[2], bool* waitingToHide, s
         setColor(revealedCards[1], sfTransparent);
         setWasFound(revealedCards[0]);
         setWasFound(revealedCards[1]);
+        /*
+        if(game->isMultiplayer) {
+            char message[256];
+            snprintf(message, sizeof(message), "PAIRED_CARDS %d %d", revealedCards[0]->id, revealedCards[1]->id);
+            sfTcpSocket_send(socket, message, strlen(message));
+        }
+         */
         revealedCards[0] = revealedCards[1] = NULL;
     } else {
         printf("Not a pair.\n");
@@ -218,12 +225,9 @@ void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* wind
     game->socket = socket;
     printf("Initializing multiplayer grid: rows=%d, cols=%d\n", rows, cols);
     game_start_singleplayer(game, rows, cols, window);
-
-
  char message[256];
  snprintf(message, sizeof(message), "GRID %d %d", rows, cols);
  sfTcpSocket_send(socket, message, strlen(message));
-
     game->isRunning = true;
     printf("Multiplayer game started\n");
 }
@@ -246,9 +250,7 @@ void game_handle_event_multiplayer(Game* game, const sfEvent* event) {
 
 
                 // Send only the card ID
-                printf("IS DISABLED?????????, %d \n", game->disableSend);
 
-                if(!card->wasFound) {
                 char message[64];
                 snprintf(message, sizeof(message), "CARD_CLICK %d", card->id);
                 sfSocketStatus status = sfTcpSocket_send(game->socket, message, strlen(message));
@@ -260,7 +262,7 @@ void game_handle_event_multiplayer(Game* game, const sfEvent* event) {
 
                 break; // Stop after processing the first valid click
             }
-            }
+
 
         }
     }

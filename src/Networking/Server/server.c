@@ -88,7 +88,6 @@ void* handle_client(void* arg) {
             int cardID;
             if (sscanf(data, "CARD_CLICK %d", &cardID) == 1) {
                 printf("Received card click: ID=%d\n", cardID);
-
                 broadcast_message(server, data);
             } else {
                 printf("Invalid CARD message: %s\n", data);
