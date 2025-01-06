@@ -31,6 +31,4 @@ typedef struct {
 } ClientHandlerArgs;
 
 void* handle_client(void* client_socket);
-void send_full_grid_state(Server* server, sfTcpSocket* client);
-
 #endif //PEXESO_SERVER_H

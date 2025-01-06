@@ -273,11 +273,22 @@ void handleClick(Window *window) {
         if (*window->currentScreen == SINGLE_PLAYER_STARTED) {
             //printf("game handle event\n");
             game_handle_event(window->game, &event);
+            if(window->game->isRunning)
+            {
+                if(window->game->win) {
+                    *window->currentScreen = WIN_SCREEN;
+                    char infoMessage[256];
+                    sprintf(infoMessage, "Game finished", window->rowSize, window->colSize);
+                    label_set_text(window->infoLabel, infoMessage);
+                }
+            }
+
         }
         if (*window->currentScreen == MULTI_PLAYER_STARTED) {
             //printf("game handle event\n");
             game_handle_event_multiplayer(window->game, &event);
         }
+
     }
 }
 
@@ -341,7 +352,10 @@ void draw(Window* window, Screen currentScreen) {
     }else if (currentScreen == MULTI_PLAYER_STARTED) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
         game_draw(window->game, window->renderWindow);
+    }else if (currentScreen == WIN_SCREEN) {
+        label_draw(window->infoLabel, window->renderWindow);
     }
+
 
 }
 
@@ -405,13 +419,27 @@ void create_listener(Window* window)
         pthread_mutex_unlock(&window->socketMutex);
         return;
     }
-    sfIpAddress serverAddress = sfIpAddress_fromString("127.0.0.1");
+
+    sfIpAddress serverAddress;
+    if(window->isHost){
+        char addr[10] = "127.0.0.1";
+        serverAddress = sfIpAddress_fromString(addr);
+    } else {
+        char ip[16] = "127.0.0.1";;
+        printf("DEFAULT LOCAL: 127.0.0.1\n");
+        //printf("Enter an IP address: ");
+        //fgets(ip, sizeof(ip), stdin);
+        serverAddress = sfIpAddress_fromString(ip);
+    }
     sfSocketStatus status = sfTcpSocket_connect(window->socket, serverAddress, 53000, sfSeconds(5.0f));
     if (status != sfSocketDone) {
         printf("Failed to connect to the server\n");
+        *window->currentScreen = MAIN_MENU;
+        /*
         sfTcpSocket_destroy(window->socket);
         window->socket = NULL;
         return;
+         */
     }
     pthread_mutex_unlock(&window->socketMutex);
     pthread_t listenerThread;
@@ -428,6 +456,7 @@ void* server_listener_thread(void* arg) {
     sfTcpSocket_setBlocking(window->socket, sfFalse); // Non-blocking mode
     char buffer[256];
     size_t received;
+    int countFoundCards = 0;
     while (1) {
         pthread_mutex_lock(&window->socketMutex);
         if (!window->socket) {
@@ -470,12 +499,11 @@ void* server_listener_thread(void* arg) {
                     pthread_mutex_unlock(&window->socketMutex);
                 }
 
-            } else if((strncmp(buffer, "CARD_CLICK", 4) == 0)) {
+            } else if((strncmp(buffer, "CARD_CLICK", 10) == 0)) {
                 int cardID;
                 if (sscanf(buffer, "CARD_CLICK %d", &cardID) == 1) {
                     printf("Server says card clicked: ID=%d\n", cardID);
 
-                    // Reveal the card locally
                     for (int i = 0; i < window->game->grid->rows * window->game->grid->columns; ++i) {
                         Pexeso *card = window->game->grid->pexesoObjects[i];
                         if (card->id == cardID) {
@@ -488,7 +516,18 @@ void* server_listener_thread(void* arg) {
                     }
                 }
 
+            }  else if(strncmp(buffer, "PAIRED_CARDS", 12) == 0) {
+            int cardID_1, cardID_2;
+            if (sscanf(buffer,"PAIRED_CARDS %d %d", &cardID_1, &cardID_2) == 2) {
+                printf("Received matching IDs ID_1=%d, ID_2=%d\n", cardID_1, cardID_2);
+                //Pexeso* pex1 =  window->game->grid->pexesoObjects[cardID_1];
+                //Pexeso* pex2 =  window->game->grid->pexesoObjects[cardID_2];
+
+                //setWasFound(pex1);
+               // setWasFound(pex2);
+
             }
+        }
         } else {
             printf("Status error\n");
         }

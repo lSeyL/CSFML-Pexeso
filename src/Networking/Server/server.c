@@ -11,7 +11,7 @@ void broadcast_message(Server* server, const char* message) {
         if (sfTcpSocket_send(server->clients[i], message, strlen(message)) != sfSocketDone) {
             printf("Failed to send message to client %d\n", i);
         } else {
-            printf("[BROADCAST] - Message sent to clients: %s\n", message);
+            printf("[BROADCAST] - Message to clients: %s", message);
         }
     }
     pthread_mutex_unlock(&server->clientMutex);
@@ -24,7 +24,7 @@ void* handle_client(void* arg) {
 
     free(args);
 
-    printf("Client connected!\n");
+    printf("Client connected! Number of clients connected: %d", server->clientCount);
 
     // Wait for the first message from the client
     char data[256];
@@ -49,10 +49,9 @@ void* handle_client(void* arg) {
 
         printf("Set grid dimensions to %dx%d from host\n", rows, cols);
 
-        // Broadcast the updated grid dimensions to all clients
         broadcast_message(server, data);
 
-        // Send the full grid state to the client
+
         pthread_mutex_lock(&server->clientMutex);
         //send_full_grid_state(server, client);
         pthread_mutex_unlock(&server->clientMutex);
@@ -84,13 +83,20 @@ void* handle_client(void* arg) {
             broadcast_message(server, data);
         } else if (strncmp(data, "START_GAME", 10) == 0) {
             broadcast_message(server, data);
-        } else if (strncmp(data, "CARD_CLICK", 4) == 0) {
+        } else if (strncmp(data, "CARD_CLICK", 10) == 0) {
             int cardID;
             if (sscanf(data, "CARD_CLICK %d", &cardID) == 1) {
                 printf("Received card click: ID=%d\n", cardID);
                 broadcast_message(server, data);
             } else {
                 printf("Invalid CARD message: %s\n", data);
+            }
+
+        } else if(strncmp(data, "PAIRED_CARDS", 12) == 0) {
+            int cardID_1, cardID_2;
+            if (sscanf(data,"PAIRED_CARDS %d %d", &cardID_1, &cardID_2) == 2) {
+                printf("Received matching IDs ID_1=%d, ID_2=%d\n", cardID_1, cardID_2);
+                broadcast_message(server, data);
             }
         }
     }
@@ -119,12 +125,12 @@ int main() {
         return 1;
     }
 
-    if (sfTcpListener_listen(listener, 53000, sfIpAddress_Any) != sfSocketDone) {
+    if (sfTcpListener_listen(listener, 53000, sfIpAddress_LocalHost) != sfSocketDone) {
         printf("Failed to bind listener\n");
         sfTcpListener_destroy(listener);
         return 1;
     }
-    printf("Server on\n");
+    printf("Server is running..\n");
 
     while (1) {
         sfTcpSocket* client = NULL;

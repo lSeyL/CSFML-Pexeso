@@ -22,6 +22,7 @@ typedef struct {
     bool isRunning;
     bool disableSend;
     bool isPlayerTurn;
+    bool win;
 } Game;
 
 
@@ -29,11 +30,13 @@ Game* game_create();
 void game_destroy(Game* game);
 void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* window);
 void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* window, sfTcpSocket* socket);
-void bot_take_turn(Game* game, sfClock* revealTimer);
+void bot_take_turn(Game* game, sfClock* revealTimer, Pexeso* revealedCards[2], bool* inputDisabled, bool* waitingToHide);
 void game_handle_event(Game* game, const sfEvent* event);
 void game_handle_event_multiplayer(Game* game, const sfEvent* event);
 void game_handle_revealed_cards(Game* game, Pexeso* revealedCards[2], bool* inputDisabled, bool* waitingToHide, sfClock* revealTimer);
 void game_check_pair(Game* game,Pexeso* revealedCards[2], bool* waitingToHide, sfClock* revealTimer);
 void game_reset_revealed_cards(Game* game,Pexeso* revealedCards[2], bool* inputDisabled, bool* waitingToHide, sfClock* revealTimer);
 void game_draw(Game* game, sfRenderWindow* window);
+bool checkWinCondition(Game* game);
+void sendGridToServer(Game* game, sfTcpSocket* socket);
 #endif //PEXESO_GAME_H

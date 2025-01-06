@@ -7,7 +7,7 @@
 Game* game_create() {
     Game* game = (Game*)malloc(sizeof(Game));
     if (!game) return NULL;
-
+    game->win = false;
     game->grid = NULL;
     game->rowSize = 0;
     game->colSize = 0;
@@ -67,6 +67,7 @@ void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* win
     sfVector2f startPosition = {startX, startY};
     sfVector2f size = {tileSize, tileSize};
     // Create the grid
+
     game->grid = pexeso_grid_create(rows, cols, startPosition, size);
 
     if (!game->grid) {
@@ -80,9 +81,15 @@ void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* win
 void game_handle_event(Game* game, const sfEvent* event) {
     if (!game || !game->isRunning) return;
 
+    if (checkWinCondition(game)) {
+        printf("Game finished.\n");
+        return;
+    }
+
     static sfClock* revealTimer = NULL;
     static bool waitingToHide = false;
     static bool inputDisabled = false;
+
     if (!revealTimer) {
         revealTimer = sfClock_create();
         if (!revealTimer) {
@@ -93,39 +100,59 @@ void game_handle_event(Game* game, const sfEvent* event) {
 
     static Pexeso* revealedCards[2] = {NULL, NULL};
 
-    if (inputDisabled) {
-        game_reset_revealed_cards(game,revealedCards, &inputDisabled, &waitingToHide, revealTimer);
-        if (!waitingToHide && !inputDisabled) {
-            if(!game->isMultiplayer) {
-            game->isPlayerTurn = !game->isPlayerTurn; // Switch turn
-            printf("Turn switched: %s\n", game->isPlayerTurn ? "Player" : "Bot");
-            }
+    // Handle card hiding
+    if (waitingToHide && sfTime_asSeconds(sfClock_getElapsedTime(revealTimer)) > 2.0f) {
+        printf("Hiding cards\n");
+        if (revealedCards[0] && revealedCards[1]) {
+            setColor(revealedCards[0], sfBlack);
+            hide(revealedCards[0]);
+            setColor(revealedCards[1], sfBlack);
+            hide(revealedCards[1]);
         }
-        return;
+        revealedCards[0] = revealedCards[1] = NULL;
+        waitingToHide = false;
+        inputDisabled = false;
+        game->disableSend = false;
+    }
+
+    if (inputDisabled) {
+        return; // Skip further input processing if input is disabled
     }
 
     if (game->isPlayerTurn) {
+        // Player's turn
         if (event->type == sfEvtMouseButtonPressed) {
             pexeso_grid_handle_click(game->grid, event);
             game_handle_revealed_cards(game, revealedCards, &inputDisabled, &waitingToHide, revealTimer);
         }
-    }
-
-    // Bot's turn
-   // printf("PLAYER TURN: %d %d %d\n",game->isPlayerTurn, waitingToHide ,inputDisabled);
-    if (!game->isMultiplayer && !game->isPlayerTurn ) {
-        printf("1\n");
-        game->isPlayerTurn = true;
-        bot_take_turn(game, revealTimer);
+    } else {
+        // Bot's turn
+        if (!game->isMultiplayer) {
+            bot_take_turn(game, revealTimer, revealedCards, &inputDisabled, &waitingToHide);
+            game->isPlayerTurn = true; // Switch back to the player
+        }
     }
 }
 
-void bot_take_turn(Game* game, sfClock* revealTimer) {
-    if (!game || !game->isRunning) return;
+bool checkWinCondition(Game* game) {
+    if (!game || !game->grid) {
+        return false;
+    }
+    for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
+        Pexeso* card = game->grid->pexesoObjects[i];
+        if (!card->wasFound) {
+            return false;
+        }
+    }
+    game->win = true;
+    return true;
+}
+
+void bot_take_turn(Game* game, sfClock* revealTimer, Pexeso* revealedCards[2], bool* inputDisabled, bool* waitingToHide) {
+    if (!game || !game->isRunning || *inputDisabled || *waitingToHide) return;
 
     printf("Bot's turn!\n");
 
-    Pexeso* revealedCards[2] = {NULL, NULL};
     int revealedCount = 0;
 
     // Randomly reveal two cards
@@ -140,19 +167,9 @@ void bot_take_turn(Game* game, sfClock* revealTimer) {
         if (revealedCount == 2) break;
     }
 
-    // Check if the revealed cards match
     if (revealedCount == 2) {
-        bool waitingToHide = false;
-        bool inputDisabled = true;
-
-        // Pass the game instance to the functions
-        game_check_pair(game, revealedCards, &waitingToHide, revealTimer);
-        sfSleep(sfSeconds(1)); // Simulate delay
-        game_reset_revealed_cards(game, revealedCards, &inputDisabled, &waitingToHide, revealTimer);
-
-        // Switch turn back to the player
-        game->isPlayerTurn = true;
-        printf("Turn switched: Player's turn\n");
+        *inputDisabled = true;
+        game_check_pair(game, revealedCards, waitingToHide, revealTimer);
     }
 }
 
@@ -168,30 +185,28 @@ void game_handle_revealed_cards(Game* game, Pexeso* revealedCards[2], bool* inpu
 
     if (revealedCount == 2) {
         *inputDisabled = true;
-        game->disableSend = true;  // Disable sending further clicks
-        game_check_pair(game,revealedCards, waitingToHide, revealTimer);
+        game->disableSend = true; // Disable further clicks
+        game_check_pair(game, revealedCards, waitingToHide, revealTimer);
     } else {
-        game->disableSend = false; // Allow sending for new clicks
+        game->disableSend = false; // Allow new clicks
     }
 }
 
-void game_check_pair(Game* game,Pexeso* revealedCards[2], bool* waitingToHide, sfClock* revealTimer) {
+void game_check_pair(Game* game, Pexeso* revealedCards[2], bool* waitingToHide, sfClock* revealTimer) {
     if (getIntegerBasedOnColor(*getColor(revealedCards[0])) == getIntegerBasedOnColor(*getColor(revealedCards[1])) &&
         getLabel(revealedCards[0]) == getLabel(revealedCards[1])) {
         printf("Match found!\n");
         hide(revealedCards[0]);
         hide(revealedCards[1]);
-        setColor(revealedCards[0], sfTransparent);
-        setColor(revealedCards[1], sfTransparent);
         setWasFound(revealedCards[0]);
         setWasFound(revealedCards[1]);
-        /*
-        if(game->isMultiplayer) {
+
+        if (game->isMultiplayer) {
             char message[256];
-            snprintf(message, sizeof(message), "PAIRED_CARDS %d %d", revealedCards[0]->id, revealedCards[1]->id);
-            sfTcpSocket_send(socket, message, strlen(message));
+            snprintf(message, sizeof(message), "PAIRED_CARDS %d %d\n", getID(revealedCards[0]), getID(revealedCards[1]));
+            sfTcpSocket_send(game->socket, message, strlen(message));
         }
-         */
+
         revealedCards[0] = revealedCards[1] = NULL;
     } else {
         printf("Not a pair.\n");
@@ -226,7 +241,7 @@ void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* wind
     printf("Initializing multiplayer grid: rows=%d, cols=%d\n", rows, cols);
     game_start_singleplayer(game, rows, cols, window);
  char message[256];
- snprintf(message, sizeof(message), "GRID %d %d", rows, cols);
+ snprintf(message, sizeof(message), "GRID %d %d\n", rows, cols);
  sfTcpSocket_send(socket, message, strlen(message));
     game->isRunning = true;
     printf("Multiplayer game started\n");
@@ -252,7 +267,7 @@ void game_handle_event_multiplayer(Game* game, const sfEvent* event) {
                 // Send only the card ID
 
                 char message[64];
-                snprintf(message, sizeof(message), "CARD_CLICK %d", card->id);
+                snprintf(message, sizeof(message), "CARD_CLICK %d\n", card->id);
                 sfSocketStatus status = sfTcpSocket_send(game->socket, message, strlen(message));
                 if (status != sfSocketDone) {
                     printf("Failed to send card click to server\n");
@@ -266,6 +281,9 @@ void game_handle_event_multiplayer(Game* game, const sfEvent* event) {
 
         }
     }
+}
+void sendGridToServer(Game* game, sfTcpSocket* socket) {
+
 }
 
 void game_draw(Game* game, sfRenderWindow* window) {

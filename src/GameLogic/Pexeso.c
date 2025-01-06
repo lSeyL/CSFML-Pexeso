@@ -64,6 +64,7 @@ void handleClickOnCard(Pexeso* pexeso, const sfEvent* event) {
 }
 sfBool isClicked(const Pexeso* pexeso, const sfVector2f* mousePosition) {
     if (!pexeso || !mousePosition) return sfFalse;
+    if(pexeso->wasFound) return sfFalse;
     sfFloatRect bounds = sfRectangleShape_getGlobalBounds(pexeso->shape);
     return sfFloatRect_contains(&bounds, mousePosition->x, mousePosition->y);
 }
@@ -106,4 +107,5 @@ void destroy(Pexeso* pexeso) {
 }
 void setWasFound(Pexeso* pexeso) {
     pexeso->wasFound = sfTrue;
+    sfRectangleShape_setFillColor(pexeso->shape, sfTransparent);
 }
