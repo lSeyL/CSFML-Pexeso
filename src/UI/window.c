@@ -125,7 +125,7 @@ Window* window_create() {
     window->colLabel = label_create("Rows:", window->font, (sfVector2f){75, 180}, 60, sfWhite);
     window->playersLabel = label_create("Players", window->font, (sfVector2f){950, 50}, 50, sfWhite);
     window->errorLabel  = label_create("", window->font, (sfVector2f){280, 275}, 50, sfRed);
-    window->infoLabel  = label_create("", window->font, (sfVector2f){280, 275}, 75, sfWhite);
+    window->infoLabel  = label_create("", window->font, (sfVector2f){300, 275}, 75, sfWhite);
 
     window->spPlayerTurn  = label_create("", window->font, (sfVector2f){850, 50}, 50, sfWhite);
     window->spPoints  = label_create("", window->font, (sfVector2f){850, 125}, 45, sfWhite);
@@ -229,7 +229,7 @@ void handleClick(Window *window) {
                 printf("back\n");
                 *window->currentScreen = MULTI_PLAYER_JOIN;
                 char infoMessage[256];
-                sprintf(infoMessage, "Joining a server...", window->rowSize, window->colSize);
+                sprintf(infoMessage, " Joining a server...", window->rowSize, window->colSize);
                 label_set_text(window->infoLabel, infoMessage);
             }
         }
@@ -303,7 +303,7 @@ void handleClick(Window *window) {
         if (*window->currentScreen == SINGLE_PLAYER_STARTED) {
             //printf("game handle event\n");
             game_handle_event(window->game, &event);
-            // Refresh points etc
+            // Refresh points sp
             char whosTurnText[256];
             char numPointsText[256];
             if(window->game->isPlayerTurn){
@@ -510,10 +510,9 @@ void create_listener(Window* window)
 
 void* server_listener_thread(void* arg) {
     Window* window = (Window*)arg;
-    sfTcpSocket_setBlocking(window->socket, sfFalse); // Non-blocking mode
+    sfTcpSocket_setBlocking(window->socket, sfFalse);
     char buffer[256];
     size_t received;
-    int countFoundCards = 0;
     while (1) {
         pthread_mutex_lock(&window->socketMutex);
         if (!window->socket) {
@@ -534,7 +533,7 @@ void* server_listener_thread(void* arg) {
             break;
         } else if (status == sfSocketDone) {
             buffer[received] = '\0';
-            printf("Message from server: %s\n", buffer);
+            printf("Message from server: %s ", buffer);
 
             if (strncmp(buffer, "GRID", 4) == 0) {
                 int rows, cols;

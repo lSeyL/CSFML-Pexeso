@@ -6,12 +6,10 @@
 
 void broadcast_message(Server* server, const char* message) {
     pthread_mutex_lock(&server->clientMutex);
+    printf("[BROADCAST] - Message to clients: %s", message);
     for (int i = 0; i < server->clientCount; ++i) {
-
         if (sfTcpSocket_send(server->clients[i], message, strlen(message)) != sfSocketDone) {
             printf("Failed to send message to client %d\n", i);
-        } else {
-            printf("[BROADCAST] - Message to clients: %s", message);
         }
     }
     pthread_mutex_unlock(&server->clientMutex);

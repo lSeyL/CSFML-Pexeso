@@ -28,6 +28,27 @@ void game_destroy(Game* game) {
     }
 }
 
+bool checkWinCondition(Game* game) {
+    if (!game || !game->grid) {
+        return false;
+    }
+    if(game->mode == 2 ) {
+        if(get_remaining_time(game) == 0) {
+            printf("Out of time.\n");
+            game->win = true;
+            return true;
+        }
+    }
+    for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
+        Pexeso* card = game->grid->pexesoObjects[i];
+        if (!card->wasFound) {
+            return false;
+        }
+    }
+    game->win = true;
+    return true;
+}
+
 void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* window, int difficulty, int mode) {
     game->rowSize = rows;
     game->colSize = cols;
@@ -45,42 +66,8 @@ void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* win
             return;
         }
     }
-
-
-    float windowWidth = sfRenderWindow_getSize(window).x;
-    float windowHeight = sfRenderWindow_getSize(window).y;
-    float rightPadding = 400;
-    float leftPadding = 10;
-    float topPadding = 50;
-    float bottomPadding = 100;
-
-    float usableWidth = windowWidth - leftPadding - rightPadding;
-    float usableHeight = windowHeight - topPadding - bottomPadding;
-
-    float tileWidth = usableWidth / cols;
-    float tileHeight = usableHeight / rows;
-    float tileSize = tileWidth < tileHeight ? tileWidth : tileHeight;
-
-    if (tileSize * rows > usableHeight || tileSize * cols > usableWidth) {
-        tileSize = (usableHeight / rows) < (usableWidth / cols) ? (usableHeight / rows) : (usableWidth / cols);
-    }
-
-    if (tileSize < 50.0f) tileSize = 50.0f;
-
-    float gridWidth = tileSize * cols;
-    float gridHeight = tileSize * rows;
-
-    float startX = leftPadding + (usableWidth - gridWidth) / 2;
-    float startY = topPadding + (usableHeight - gridHeight) / 2;
-
-    sfVector2f startPosition = {startX, startY};
-    sfVector2f size = {tileSize, tileSize};
-
-    if(!game->isMultiplayer){
-        printf("Game is not multiplayer, creating grid locally.\n");
-
-    }
-    game->grid = pexeso_grid_create(rows, cols, startPosition, size);
+    calculateGridLayout(game, window);
+    game->grid = pexeso_grid_create(rows, cols, game->gridStartPosition, game->tileSize);
 
     if (!game->grid) {
         printf("Failed to create Pexeso grid\n");
@@ -158,26 +145,7 @@ void game_handle_event(Game* game, const sfEvent* event) {
     }
 }
 
-bool checkWinCondition(Game* game) {
-    if (!game || !game->grid) {
-        return false;
-    }
-    if(game->mode == 2 ) {
-        if(get_remaining_time(game) == 0) {
-            printf("Out of time.\n");
-            game->win = true;
-            return true;
-        }
-    }
-    for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
-        Pexeso* card = game->grid->pexesoObjects[i];
-        if (!card->wasFound) {
-            return false;
-        }
-    }
-    game->win = true;
-    return true;
-}
+
 
 void bot_take_turn(Game* game, sfClock* revealTimer, Pexeso* revealedCards[2], bool* inputDisabled, bool* waitingToHide) {
     if (!game || !game->isRunning || *inputDisabled || *waitingToHide) return;
@@ -413,6 +381,39 @@ void game_handle_event_multiplayer(Game* game, const sfEvent* event) {
 }
 void sendGridToServer(Game* game, sfTcpSocket* socket) {
 
+}
+void calculateGridLayout(Game* game, sfRenderWindow* window) {
+    float windowWidth = sfRenderWindow_getSize(window).x;
+    float windowHeight = sfRenderWindow_getSize(window).y;
+    float rightPadding = 400;
+    float leftPadding = 10;
+    float topPadding = 50;
+    float bottomPadding = 100;
+
+    float usableWidth = windowWidth - leftPadding - rightPadding;
+    float usableHeight = windowHeight - topPadding - bottomPadding;
+
+    float tileWidth = usableWidth / game->colSize;
+    float tileHeight = usableHeight / game->rowSize;
+    float tileSize = tileWidth < tileHeight ? tileWidth : tileHeight;
+
+    if (tileSize * game->rowSize > usableHeight || tileSize * game->colSize > usableWidth) {
+        tileSize = (usableHeight / game->rowSize) < (usableWidth / game->colSize) ? (usableHeight / game->rowSize) : (usableWidth / game->colSize);
+    }
+
+    if (tileSize < 50.0f) tileSize = 50.0f;
+
+    float gridWidth = tileSize * game->colSize;
+    float gridHeight = tileSize * game->rowSize;
+
+    float startX = leftPadding + (usableWidth - gridWidth) / 2;
+    float startY = topPadding + (usableHeight - gridHeight) / 2;
+
+    sfVector2f startPosition = {startX, startY};
+    sfVector2f size = {tileSize, tileSize};
+
+    game->tileSize = size;
+    game->gridStartPosition = startPosition;
 }
 
 void game_draw(Game* game, sfRenderWindow* window) {

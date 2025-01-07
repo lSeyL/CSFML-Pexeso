@@ -26,6 +26,8 @@ typedef struct {
 } MemoryCard;
 
 typedef struct {
+    sfVector2f tileSize;
+    sfVector2f gridStartPosition;
     PexesoGrid* grid;
     int rowSize;
     int colSize;
@@ -51,6 +53,7 @@ typedef struct {
 
 Game* game_create(sfRenderWindow* renderWindow, Rules* rules);
 void debug_grid_mapping(Game* game);
+void calculateGridLayout(Game* game, sfRenderWindow* window);
 void setupLabels();
 void game_destroy(Game* game);
 bool checkWinCondition(Game* game);
