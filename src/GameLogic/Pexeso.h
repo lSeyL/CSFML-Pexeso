@@ -22,6 +22,7 @@ typedef struct {
     sfBool wasFound;
 } Pexeso;
 unsigned int getIntegerBasedOnColor(sfColor color);
+sfColor getColorFromInteger(unsigned int value);
 Pexeso* pexesoCreate(const sfVector2f* position, const sfVector2f* size, sfColor backColor, sfColor frontColor, char label);
 void pexesoDraw(Pexeso* pexeso, sfRenderWindow* window);
 void handleClickOnCard(Pexeso* pexeso, const sfEvent* event);

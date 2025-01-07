@@ -1,9 +1,7 @@
 #include "PexesoGrid.h"
-#include <stdlib.h>
-#include <time.h>
-#include <stdio.h>
 
-PexesoGrid* pexeso_grid_create(int rows, int columns, sfVector2f startPosition, sfVector2f pexesoSize) {
+
+PexesoGrid* pexeso_grid_create(int rows, int columns, sfVector2f startPosition, sfVector2f pexesoSize, bool generate) {
     PexesoGrid* grid = (PexesoGrid*)malloc(sizeof(PexesoGrid));
     if (!grid) return NULL;
     grid->rows = rows;
@@ -15,7 +13,9 @@ PexesoGrid* pexeso_grid_create(int rows, int columns, sfVector2f startPosition, 
         free(grid);
         return NULL;
     }
-    pexeso_grid_generate(grid);
+    if(generate) {
+        pexeso_grid_generate(grid);
+    }
     return grid;
 }
 

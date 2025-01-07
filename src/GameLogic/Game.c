@@ -16,6 +16,7 @@ Game* game_create(sfRenderWindow* renderWindow, Rules* rules) {
     game->socket = NULL;
     game->playerPoints = 0;
     game->botPoints = 0;
+    game->gridLoaded = false;
     return game;
 }
 
@@ -67,8 +68,7 @@ void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* win
         }
     }
     calculateGridLayout(game, window);
-    game->grid = pexeso_grid_create(rows, cols, game->gridStartPosition, game->tileSize);
-
+    game->grid = pexeso_grid_create(rows, cols, game->gridStartPosition, game->tileSize, true);
     if (!game->grid) {
         printf("Failed to create Pexeso grid\n");
         return;
@@ -121,22 +121,18 @@ void game_handle_event(Game* game, const sfEvent* event) {
 
 
     if (inputDisabled) {
-        return; // Skip further input processing if input is disabled
+        return;
     }
 
     if (game->isPlayerTurn) {
-        // Player's turn
         if (event->type == sfEvtMouseButtonPressed) {
             pexeso_grid_handle_click(game->grid, event);
             game_handle_revealed_cards(game, revealedCards, &inputDisabled, &waitingToHide, revealTimer);
         }
     } else {
-        // Bot's turn
         printf("Bot turn\n");
         if (!game->isMultiplayer && !waitingToHide && !inputDisabled) {
             bot_take_turn(game, revealTimer, revealedCards, &inputDisabled, &waitingToHide);
-
-            // Switch turn back to the player only if no further actions are pending
             if (!waitingToHide && !inputDisabled) {
                 game->isPlayerTurn = true;
                 printf("Turn switched back to Player.\n");
@@ -176,7 +172,7 @@ void bot_take_turn(Game* game, sfClock* revealTimer, Pexeso* revealedCards[2], b
                 }
             }
 
-            if (revealedCount == 2) break; // Stop after revealing two cards
+            if (revealedCount == 2) break;
         }
     }
 
@@ -330,18 +326,24 @@ void update_timer_label(Game* game, char* buffer, size_t bufferSize) {
 
 void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* window, sfTcpSocket* socket) {
     if (game->isRunning) {
+        printf("Game already running\n");
         return;
     }
-
     game->isMultiplayer = true;
     game->socket = socket;
-    printf("Initializing multiplayer grid: rows=%d, cols=%d\n", rows, cols);
-    game_start_singleplayer(game, rows, cols, window, game->difficulty, game->mode);
- char message[256];
- snprintf(message, sizeof(message), "GRID %d %d\n", rows, cols);
- sfTcpSocket_send(socket, message, strlen(message));
+    game->gridLoaded = false;
+    game->gridDataCount = 0;
+
+    // log
+    /*
+    for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
+        printf("[Card grid]: %d %c %u\n", getID(game->grid->pexesoObjects[i]),
+               getLabel(game->grid->pexesoObjects[i]),
+               getIntegerBasedOnColor(*getColor(game->grid->pexesoObjects[i])));
+    }
+     */
     game->isRunning = true;
-    printf("Multiplayer game started\n");
+
 }
 
 void game_handle_event_multiplayer(Game* game, const sfEvent* event) {
@@ -349,7 +351,7 @@ void game_handle_event_multiplayer(Game* game, const sfEvent* event) {
 
 
     // Handle local events
-    game_handle_event(game, event);
+    //game_handle_event(game, event);
     // Send card click to server
     if (event->type == sfEvtMouseButtonPressed) {
         sfVector2f mousePos = {event->mouseButton.x, event->mouseButton.y};
@@ -417,7 +419,7 @@ void calculateGridLayout(Game* game, sfRenderWindow* window) {
 }
 
 void game_draw(Game* game, sfRenderWindow* window) {
-    if (!game) {
+    if (!game && !game->gridLoaded) {
         printf("Game not initialized.\n");
         return;
     }

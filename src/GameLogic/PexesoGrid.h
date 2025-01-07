@@ -5,6 +5,11 @@
 #ifndef PEXESO_PEXESOGRID_H
 #define PEXESO_PEXESOGRID_H
 #include <SFML/Graphics.h>
+#include <stdlib.h>
+#include <time.h>
+#include <stdio.h>
+#include <stdbool.h>
+
 #include "PexesoPairs.h"
 #include "Pexeso.h"
 
@@ -16,7 +21,7 @@ typedef struct {
     Pexeso** pexesoObjects;     // Array of pointers to Pexeso objects
 } PexesoGrid;
 
-PexesoGrid* pexeso_grid_create(int rows, int columns, sfVector2f startPosition, sfVector2f pexesoSize);
+PexesoGrid* pexeso_grid_create(int rows, int columns, sfVector2f startPosition, sfVector2f pexesoSize, bool generate);
 void pexeso_grid_destroy(PexesoGrid* grid);
 
 void pexeso_grid_generate(PexesoGrid* grid);

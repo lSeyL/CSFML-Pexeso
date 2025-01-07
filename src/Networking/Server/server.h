@@ -12,6 +12,7 @@
 #include <stdlib.h>
 
 #include "../../GameLogic/PexesoGrid.h"
+
 #define MAX_CLIENTS 10
 
 typedef struct {
@@ -21,6 +22,8 @@ typedef struct {
     int currentClientTurn;
     int gridRows;
     int gridCols;
+    int pexesoToCompare;
+    Pexeso* revealedPexesoCards[2];
     PexesoGrid* currentGrid;
     sfBool isGameRunning;
 } Server;
@@ -29,6 +32,11 @@ typedef struct {
     Server* server;
     sfTcpSocket* client;
 } ClientHandlerArgs;
-
+void broadcastPairedCards(Server* server, int cardID1, int cardID2);
+void broadcastResetCards(Server* server, int cardID1, int cardID2);
+void broadcast_grid(Server* server);
+void broadcast_message(Server* server, const char* message);
+bool checkPairedCards(Pexeso* pexFirst, Pexeso* pexSecond);
+Pexeso* findByID(Server* server, int id);
 void* handle_client(void* client_socket);
 #endif //PEXESO_SERVER_H

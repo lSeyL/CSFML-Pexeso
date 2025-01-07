@@ -7,6 +7,15 @@
 unsigned int getIntegerBasedOnColor(sfColor color) {
     return (color.a << 24) | (color.r << 16) | (color.g << 8) | color.b;
 }
+
+sfColor getColorFromInteger(unsigned int value) {
+    sfColor color;
+    color.a = (value >> 24) & 0xFF;
+    color.r = (value >> 16) & 0xFF;
+    color.g = (value >> 8) & 0xFF;
+    color.b = value & 0xFF;
+    return color;
+}
 Pexeso* pexesoCreate(const sfVector2f* position, const sfVector2f* size, sfColor backColor, sfColor frontColor, char label) {
     Pexeso* pexeso = (Pexeso*)malloc(sizeof(Pexeso));
     if (!pexeso) return NULL;

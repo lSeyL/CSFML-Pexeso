@@ -32,6 +32,9 @@ typedef struct {
     int rowSize;
     int colSize;
     sfTcpSocket* socket;
+    bool gridLoaded;
+    int gridDataCount;
+    bool isHost;
     bool isMultiplayer;
     bool isRunning;
     bool disableSend;

@@ -140,7 +140,6 @@ Window* window_create() {
         return NULL;
     }
     window->rules = rules_create();
-
     window->game = game_create(window->renderWindow, window->rules);
 
     window->colSize = 4;
@@ -148,7 +147,6 @@ Window* window_create() {
     window->socket = NULL;
     pthread_mutex_init(&window->socketMutex, NULL);
     window->isHost = false;
-
     setDefaultSelectedIndex(window->difficultyButtons, 0);
     setDefaultSelectedIndex(window->modeButtons, 0);
     setDefaultSelectedIndex(window->rowButtons, 2);
@@ -508,88 +506,212 @@ void create_listener(Window* window)
     pthread_detach(listenerThread);
 }
 
-void* server_listener_thread(void* arg) {
+void* server_listener_thread(void* arg)
+{
     Window* window = (Window*)arg;
-    sfTcpSocket_setBlocking(window->socket, sfFalse);
-    char buffer[256];
-    size_t received;
-    while (1) {
+    char readBuffer[256];
+    static char accumulatedBuffer[1024];
+    size_t accumLen = 0;
+    while (1)
+    {
         pthread_mutex_lock(&window->socketMutex);
         if (!window->socket) {
             printf("Socket is null, exiting thread.\n");
             pthread_mutex_unlock(&window->socketMutex);
             break;
         }
-        sfSocketStatus status = sfTcpSocket_receive(window->socket, buffer, sizeof(buffer) - 1, &received);
+        size_t received = 0;
+        sfSocketStatus status = sfTcpSocket_receive(window->socket,readBuffer,sizeof(readBuffer) - 1,&received);
         pthread_mutex_unlock(&window->socketMutex);
         if (status == sfSocketDisconnected) {
             printf("Disconnected from server\n");
             break;
-        } else if (status == sfSocketNotReady) {
-            sfSleep(sfMilliseconds(250));
+        }
+        else if (status == sfSocketNotReady) {
+            sfSleep(sfMilliseconds(10));
             continue;
-        } else if (status == sfSocketError) {
+        }
+        else if (status == sfSocketError) {
             printf("Socket error occurred\n");
             break;
-        } else if (status == sfSocketDone) {
-            buffer[received] = '\0';
-            printf("Message from server: %s ", buffer);
-
-            if (strncmp(buffer, "GRID", 4) == 0) {
-                int rows, cols;
-                sscanf(buffer, "GRID %d %d", &rows, &cols);
-                printf("Setting grid size: %dx%d\n", rows, cols);
-
-                if (!window->game->isRunning) {
-                    pthread_mutex_lock(&window->socketMutex);
-                    window->colSize = cols;
-                    window->rowSize = rows;
-                    game_start_multiplayer(window->game, rows, cols, window->renderWindow, window->socket);
-                    pthread_mutex_unlock(&window->socketMutex);
-                }
-            } else if (strncmp(buffer, "START_GAME", 10) == 0) {
-                printf("Received START_GAME\n");
-                if (!window->game->isRunning) {
-                    pthread_mutex_lock(&window->socketMutex);
-                    game_start_multiplayer(window->game, window->rowSize, window->colSize, window->renderWindow, window->socket);
-                    pthread_mutex_unlock(&window->socketMutex);
-                }
-
-            } else if((strncmp(buffer, "CARD_CLICK", 10) == 0)) {
-                int cardID;
-                if (sscanf(buffer, "CARD_CLICK %d", &cardID) == 1) {
-                    printf("Server says card clicked: ID=%d\n", cardID);
-
-                    for (int i = 0; i < window->game->grid->rows * window->game->grid->columns; ++i) {
-                        Pexeso *card = window->game->grid->pexesoObjects[i];
-                        if (card->id == cardID) {
-                            if(!card->revealed && !card->wasFound){
-                                reveal(card);// Reveal the card
-                            }
-                            printf("Revealing card ID=%d locally\n", cardID);
-                            break;
-                        }
-                    }
-                }
-
-            }  else if(strncmp(buffer, "PAIRED_CARDS", 12) == 0) {
-            int cardID_1, cardID_2;
-            if (sscanf(buffer,"PAIRED_CARDS %d %d", &cardID_1, &cardID_2) == 2) {
-                printf("Received matching IDs ID_1=%d, ID_2=%d\n", cardID_1, cardID_2);
-                Pexeso* pex1 =  window->game->grid->pexesoObjects[cardID_1];
-                Pexeso* pex2 =  window->game->grid->pexesoObjects[cardID_2];
-
-                setWasFound(pex1);
-                setWasFound(pex2);
-
-            }
         }
-        } else {
+        else if (status == sfSocketDone)
+        {
+            readBuffer[received] = '\0';
+            if (accumLen + received < sizeof(accumulatedBuffer)) {
+                memcpy(accumulatedBuffer + accumLen, readBuffer, received + 1);
+                accumLen += received;
+            }
+            else {
+                printf("Accumulated buffer overflow, clearing...\n");
+                accumLen = 0;
+                continue;
+            }
+            char* start = accumulatedBuffer;
+            while (1) {
+                char* newlinePos = strchr(start, '\n');
+                if (!newlinePos) {
+                    break;
+                }
+                *newlinePos = '\0';
+                processLine(window, start);
+                start = newlinePos + 1;
+            }
+            size_t leftover = strlen(start);
+            memmove(accumulatedBuffer, start, leftover + 1);
+            accumLen = leftover;
+        }
+        else {
             printf("Status error\n");
         }
-        printf("ani jedno\n");
     }
+
     return NULL;
+}
+
+ void processLine(Window* window, const char* line)
+{
+    printf("[Client] - Message from server: %s\n", line);
+
+    if (strncmp(line, "GRID", 4) == 0) {
+        handleGridCommand(window, line);
+    }
+    else if (strncmp(line, "START_GAME", 10) == 0) {
+        handleStartGameCommand(window, line);
+    }
+    else if (strncmp(line, "CARD_CLICK", 10) == 0) {
+        handleCardClickCommand(window, line);
+    }
+    else if (strncmp(line, "DATA", 4) == 0) {
+        handleGridData(window, line);
+    }
+    else if (strncmp(line, "COMPLETE", 8) == 0) {
+        handleComplete(window);
+    }
+    else if (strncmp(line, "PAIRED_CARDS", 12) == 0) {
+        handlePairedCards(window, line);
+    }
+    else if (strncmp(line, "HIDE_CARDS", 10) == 0) {
+        handleResetCards(window, line);
+    }
+    else {
+        printf("Unknown request: %s\n", line);
+    }
+}
+
+ void handleGridCommand(Window* window, const char* line)
+{
+    int rows, cols;
+    if (sscanf(line, "GRID %d %d", &rows, &cols) == 2) {
+        if (!window->game->isRunning) {
+            pthread_mutex_lock(&window->socketMutex);
+            window->colSize = cols;
+            window->rowSize = rows;
+            calculateGridLayoutMultiplayer(window);
+            pthread_mutex_unlock(&window->socketMutex);
+        }
+    }
+}
+
+ void handleStartGameCommand(Window* window, const char* line)
+{
+    printf("Received START_GAME\n");
+    /*
+    if (!window->game->isRunning) {
+        pthread_mutex_lock(&window->socketMutex);
+        game_start_multiplayer(window->game, window->rowSize, window->colSize, window->renderWindow, window->socket);
+        pthread_mutex_unlock(&window->socketMutex);
+    }
+     */
+}
+
+ void handleCardClickCommand(Window* window, const char* line)
+{
+    int cardID;
+    if (sscanf(line, "CARD_CLICK %d", &cardID) == 1) {
+        printf("Server says card clicked: ID=%d\n", cardID);
+
+        for (int i = 0; i < window->game->grid->rows * window->game->grid->columns; ++i) {
+            Pexeso* card = window->game->grid->pexesoObjects[i];
+            if (card->id == cardID) {
+                if (!card->revealed && !card->wasFound) {
+                    reveal(card);
+                }
+                printf("Revealing card ID=%d locally\n", cardID);
+                break;
+            }
+        }
+    }
+}
+
+ void handleGridData(Window* window, const char* line)
+{
+    int cardID, color;
+    char label;
+    if (sscanf(line, "DATA %d %c %u", &cardID, &label, &color) == 3) {
+        pthread_mutex_lock(&window->socketMutex);
+        int row = cardID / window->colSize;
+        int col = cardID % window->colSize;
+
+        sfVector2f position = {window->mpGridStart.x + col * (window->mpTileSize.x + 10),
+                               window->mpGridStart.y + row * (window->mpTileSize.y + 10)};
+
+        Pexeso* pex = pexesoCreate(&position, &window->mpTileSize, sfBlack, getColorFromInteger(color), label);
+        setID(pex, cardID);
+        printf("Card received: %d %c %u\n", getID(pex), getLabel(pex), getIntegerBasedOnColor(*getColor(pex)));
+        if (!window->game->grid) {
+            printf("Grid not yet initialized.\nCreating a new Grid.. \n");
+            calculateGridLayout(window->game,window->renderWindow);
+            window->game->grid = pexeso_grid_create(window->rowSize, window->colSize,window->game->gridStartPosition, window->game->tileSize, false);
+        }
+        window->game->grid->pexesoObjects[cardID] = pex;
+
+        pthread_mutex_unlock(&window->socketMutex);
+    }
+}
+
+ void handleComplete(Window* window)
+{
+    printf("All grid data sent from the server.\n");
+    //
+    const char* message = "OK\n";
+    sfSocketStatus status = sfTcpSocket_send(window->socket, message, strlen(message));
+    if (status != sfSocketDone) {
+        printf("Failed to send msg to server.\n");
+    }
+    window->game->gridLoaded = true;
+    if (!window->game->isRunning) {
+        pthread_mutex_lock(&window->socketMutex);
+        game_start_multiplayer(window->game, window->rowSize, window->colSize, window->renderWindow, window->socket);
+        pthread_mutex_unlock(&window->socketMutex);
+    }
+}
+
+ void handlePairedCards(Window* window, const char* line)
+{
+    int cardID_1, cardID_2;
+    if (sscanf(line, "PAIRED_CARDS %d %d", &cardID_1, &cardID_2) == 2) {
+        printf("Received matching IDs ID_1=%d, ID_2=%d\n", cardID_1, cardID_2);
+        Pexeso* pex1 = window->game->grid->pexesoObjects[cardID_1];
+        Pexeso* pex2 = window->game->grid->pexesoObjects[cardID_2];
+        hide(pex1);
+        hide(pex2);
+        setWasFound(pex1);
+        setWasFound(pex2);
+    }
+}
+
+void handleResetCards(Window* window, const char* line)
+{
+    int cardID_1, cardID_2;
+    if (sscanf(line, "HIDE_CARDS %d %d", &cardID_1, &cardID_2) == 2) {
+        printf("Hiding cards with IDs ID_1=%d, ID_2=%d\n", cardID_1, cardID_2);
+        Pexeso* pex1 = window->game->grid->pexesoObjects[cardID_1];
+        Pexeso* pex2 = window->game->grid->pexesoObjects[cardID_2];
+
+        hide(pex1);
+        hide(pex2);
+    }
 }
 
 void send_grid_to_server(sfTcpSocket* socket, int rows, int cols) {
@@ -599,7 +721,7 @@ void send_grid_to_server(sfTcpSocket* socket, int rows, int cols) {
     }
 
     char message[256];
-    snprintf(message, sizeof(message), "GRID %d %d", rows, cols);
+    snprintf(message, sizeof(message), "GRID %d %d\n", rows, cols);
 
     sfSocketStatus status = sfTcpSocket_send(socket, message, strlen(message));
     if (status != sfSocketDone) {
@@ -609,3 +731,42 @@ void send_grid_to_server(sfTcpSocket* socket, int rows, int cols) {
     }
 }
 
+
+void calculateGridLayoutMultiplayer(Window *window)
+{
+    float windowWidth  = sfRenderWindow_getSize(window->renderWindow).x;
+    float windowHeight = sfRenderWindow_getSize(window->renderWindow).y;
+    float rightPadding  = 400.f;
+    float leftPadding   = 10.f;
+    float topPadding    = 50.f;
+    float bottomPadding = 100.f;
+    float usableWidth  = windowWidth  - leftPadding - rightPadding;
+    float usableHeight = windowHeight - topPadding  - bottomPadding;
+    float tileWidth  = usableWidth  / window->colSize;
+    float tileHeight = usableHeight / window->rowSize;
+    float tileSize   = (tileWidth < tileHeight) ? tileWidth : tileHeight;
+    if (tileSize * window->rowSize > usableHeight
+        || tileSize * window->colSize > usableWidth)
+    {
+        float tileSizeByRows = usableHeight / window->rowSize;
+        float tileSizeByCols = usableWidth  / window->colSize;
+        tileSize = (tileSizeByRows < tileSizeByCols) ? tileSizeByRows : tileSizeByCols;
+    }
+    if (tileSize < 50.f) {
+        tileSize = 50.f;
+    }
+    float gridWidth  = tileSize * window->colSize;
+    float gridHeight = tileSize * window->rowSize;
+    float startX = leftPadding + (usableWidth  - gridWidth)  / 2.f;
+    float startY = topPadding  + (usableHeight - gridHeight) / 2.f;
+
+    sfVector2f startPosition = { startX, startY };
+    sfVector2f size          = { tileSize, tileSize };
+
+    window->mpGridStart = startPosition;
+    window->mpTileSize = size;
+    printf("[calculateGridLayoutMultiplayer] Window: %.0fx%.0f, tile=%.2f\n",
+           windowWidth, windowHeight, tileSize);
+    printf("StartPos=(%.0f, %.0f), Grid=%dx%d\n",
+           startPosition.x, startPosition.y, window->colSize, window->rowSize);
+}

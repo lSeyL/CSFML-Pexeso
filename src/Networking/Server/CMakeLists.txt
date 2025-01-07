@@ -1,5 +1,7 @@
 add_executable(Server server.c
-        ../../GameLogic/Pexeso.c)
+        ../../GameLogic/Pexeso.c
+        ../../GameLogic/PexesoGrid.c
+        ../../GameLogic/PexesoPairs.c)
 
 set(CSFML_LIB_DIR "C:/pos_sem/CSFML/lib/gcc")
 set(CSFML_INCLUDE_DIR "C:/pos_sem/CSFML/include")
