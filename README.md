@@ -74,7 +74,7 @@ Follow these steps to set up and run the game on your machine.
 ## 📁 File Structure
 
 ```
-pexeso-game/
+Pexeso/
 ├── src/                # Source code files
 ├── Resources/          # Game assets (.png files)
 ├── Makefile            # Build script
