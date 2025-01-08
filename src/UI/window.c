@@ -766,7 +766,7 @@ void handleGameFinish(Window* window, const char* line)
     {
         window->mp_gameFinished = true;
         char infoMessage[256];
-        sprintf(infoMessage, "You won the game.");
+        sprintf(infoMessage, "The game has finished.");
         label_set_text(window->infoLabel, infoMessage);
     }
 }
