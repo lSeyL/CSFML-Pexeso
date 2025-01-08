@@ -177,16 +177,15 @@ void bot_take_turn(Game* game, sfClock* revealTimer, Pexeso* revealedCards[2], b
     }
 
     if (revealedCount < 2) {
-        for (int i = 0; i < gridSize; ++i) {
+        while(revealedCount < 2){
             int random = rand() % gridSize;
             Pexeso* card = game->grid->pexesoObjects[random];
-            if (!card->wasFound && !card->revealed && revealedCount < 2) {
+            if (!card->wasFound && !card->revealed) {
                 reveal(card);
                 bot_remember_card(game, card->id, card->label, getIntegerBasedOnColor(*getColor(card)));
                 revealedCards[revealedCount++] = card;
                 printf("Bot revealed card: ID=%d, Label=%c\n", card->id, card->label);
             }
-
             if (revealedCount == 2) break;
         }
     }
@@ -346,44 +345,33 @@ void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* wind
 
 }
 
-void game_handle_event_multiplayer(Game* game, const sfEvent* event) {
+void game_handle_event_multiplayer(Game *game, const sfEvent *event, bool isMyTurn) {
     if (!game || !game->isRunning || !game->isMultiplayer) return;
 
-
-    // Handle local events
-    //game_handle_event(game, event);
-    // Send card click to server
-    if (event->type == sfEvtMouseButtonPressed) {
-        sfVector2f mousePos = {event->mouseButton.x, event->mouseButton.y};
-
-        for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
-            Pexeso* card = game->grid->pexesoObjects[i];
-            sfFloatRect cardBounds = sfRectangleShape_getGlobalBounds(card->shape);
-
-            if (sfFloatRect_contains(&cardBounds, mousePos.x, mousePos.y)) {
-
-
-                // Send only the card ID
-
-                char message[64];
-                snprintf(message, sizeof(message), "CARD_CLICK %d\n", card->id);
-                sfSocketStatus status = sfTcpSocket_send(game->socket, message, strlen(message));
-                if (status != sfSocketDone) {
-                    printf("Failed to send card click to server\n");
-                } else {
-                    //printf("Card clicked SENT: ID=%d\n", card->id);
+    if (isMyTurn) {
+        if (event->type == sfEvtMouseButtonPressed) {
+            sfVector2f mousePos = {event->mouseButton.x, event->mouseButton.y};
+            for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
+                Pexeso *card = game->grid->pexesoObjects[i];
+                sfFloatRect cardBounds = sfRectangleShape_getGlobalBounds(card->shape);
+                if (sfFloatRect_contains(&cardBounds, mousePos.x, mousePos.y)) {
+                    char message[64];
+                    snprintf(message, sizeof(message), "CARD_CLICK %d\n", card->id);
+                    sfSocketStatus status = sfTcpSocket_send(game->socket, message, strlen(message));
+                    if (status != sfSocketDone) {
+                        printf("Failed to send card click to server\n");
+                    } else {
+                        //printf("Card clicked SENT: ID=%d\n", card->id);
+                    }
+                    break;
                 }
 
-                break; // Stop after processing the first valid click
+
             }
-
-
         }
     }
 }
-void sendGridToServer(Game* game, sfTcpSocket* socket) {
 
-}
 void calculateGridLayout(Game* game, sfRenderWindow* window) {
     float windowWidth = sfRenderWindow_getSize(window).x;
     float windowHeight = sfRenderWindow_getSize(window).y;

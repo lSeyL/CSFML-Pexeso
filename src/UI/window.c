@@ -128,8 +128,7 @@ Window* window_create() {
     window->infoLabel  = label_create("", window->font, (sfVector2f){300, 275}, 75, sfWhite);
 
     window->spPlayerTurn  = label_create("", window->font, (sfVector2f){850, 50}, 50, sfWhite);
-    window->spPoints  = label_create("", window->font, (sfVector2f){850, 125}, 45, sfWhite);
-
+    window->spPoints  = label_create("0 points", window->font, (sfVector2f){850, 125}, 45, sfWhite);
     window->timeLabel  = label_create("", window->font, (sfVector2f){850, 250}, 50, sfWhite);
     window->timeNumLabel  = label_create("", window->font, (sfVector2f){850, 325}, 45, sfWhite);
 
@@ -141,7 +140,10 @@ Window* window_create() {
     }
     window->rules = rules_create();
     window->game = game_create(window->renderWindow, window->rules);
-
+    window->mp_gameFinished = false;
+    window->mp_isMyTurn = false;
+    window->mp_ClientIDTurn = false;
+    window->mp_ClientID = -1;
     window->colSize = 4;
     window->rowSize = 4;
     window->socket = NULL;
@@ -335,7 +337,13 @@ void handleClick(Window *window) {
         }
         if (*window->currentScreen == MULTI_PLAYER_STARTED) {
             //printf("game handle event\n");
-            game_handle_event_multiplayer(window->game, &event);
+            if(!window->mp_gameFinished){
+            game_handle_event_multiplayer(window->game, &event, window->mp_isMyTurn);
+            } else {
+                printf("Game finished\n");
+                *window->currentScreen = WIN_SCREEN;
+            }
+
         }
 
     }
@@ -407,6 +415,8 @@ void draw(Window* window, Screen currentScreen) {
         game_draw(window->game, window->renderWindow);
     }else if (currentScreen == MULTI_PLAYER_STARTED) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
+        label_draw(window->spPlayerTurn, window->renderWindow);
+        label_draw(window->spPoints, window->renderWindow);
         game_draw(window->game, window->renderWindow);
     }else if (currentScreen == WIN_SCREEN) {
         label_draw(window->infoLabel, window->renderWindow);
@@ -480,7 +490,7 @@ void create_listener(Window* window)
         char addr[10] = "127.0.0.1";
         serverAddress = sfIpAddress_fromString(addr);
     } else {
-        char ip[16] = "127.0.0.1";;
+        char ip[16] = "127.0.0.1";
         printf("DEFAULT LOCAL: 127.0.0.1\n");
         //printf("Enter an IP address: ");
         //fgets(ip, sizeof(ip), stdin);
@@ -593,6 +603,18 @@ void* server_listener_thread(void* arg)
     }
     else if (strncmp(line, "HIDE_CARDS", 10) == 0) {
         handleResetCards(window, line);
+    }
+    else if (strncmp(line, "CLIENT", 6) == 0) {
+        handleClientID(window, line);
+    }
+    else if (strncmp(line, "TURN", 4) == 0) {
+        handleClientTurn(window, line);
+    }
+    else if (strncmp(line, "WIN", 3) == 0) {
+        handleGameFinish(window, line);
+    }
+    else if (strncmp(line, "UPDATE", 6) == 0) {
+        handleUpdatePoints(window, line);
     }
     else {
         printf("Unknown request: %s\n", line);
@@ -713,6 +735,50 @@ void handleResetCards(Window* window, const char* line)
         hide(pex2);
     }
 }
+void handleClientID(Window* window, const char* line) {
+    int id;
+    if (sscanf(line, "CLIENT %d", &id) == 1) {
+        window->mp_ClientID = id;
+        printf("Received clientID = %d = %d\n", id, window->mp_ClientID);
+    }
+}
+
+void handleClientTurn(Window* window, const char* line) {
+    int id;
+    if (sscanf(line, "TURN %d", &id) == 1) {
+        char turnText[64];
+        if(window->mp_ClientID == id) {
+            printf("My turn.\n");
+            window->mp_isMyTurn = true;
+            sprintf(turnText, "Your turn");
+            label_set_text(window->spPlayerTurn, turnText);
+        } else {
+            printf("Not my turn.\n");
+            window->mp_isMyTurn = false;
+            sprintf(turnText, "Client's %d turn ", id);
+            label_set_text(window->spPlayerTurn, turnText);
+        }
+    }
+}
+void handleGameFinish(Window* window, const char* line)
+{
+    if (sscanf(line, "WIN") == 0)
+    {
+        window->mp_gameFinished = true;
+        char infoMessage[256];
+        sprintf(infoMessage, "You won the game.");
+        label_set_text(window->infoLabel, infoMessage);
+    }
+}
+void handleUpdatePoints(Window* window, const char* line) {
+    int points;
+    if (sscanf(line, "UPDATE %d", &points) == 1) {
+        char pointsText[64];
+        sprintf(pointsText, "%d points", points);
+        label_set_text(window->spPoints, pointsText);
+    }
+}
+
 
 void send_grid_to_server(sfTcpSocket* socket, int rows, int cols) {
     if (!socket) {

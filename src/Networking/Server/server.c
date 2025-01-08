@@ -14,6 +14,17 @@ void broadcast_message(Server* server, const char* message) {
     }
     pthread_mutex_unlock(&server->clientMutex);
 }
+void broadcast_clientID(Server* server) {
+    pthread_mutex_lock(&server->clientMutex);
+    for (int i = 0; i < server->clientCount; ++i) {
+        char buffer[64];
+        snprintf(buffer, sizeof(buffer), "CLIENT %d\n", i);
+        if (sfTcpSocket_send(server->clients[i], buffer, strlen(buffer)) != sfSocketDone) {
+            printf("Failed to send message to client %d\n", i);
+        }
+    }
+    pthread_mutex_unlock(&server->clientMutex);
+}
 
 void broadcast_grid(Server* server) {
     char message[256];
@@ -44,15 +55,32 @@ void broadcastResetCards(Server* server, int cardID1, int cardID2){
 
 bool checkPairedCards(Pexeso* pexFirst, Pexeso* pexSecond){
     bool ret = false;
-    printf("Checking match..\n");
-    printf("Pex[1] - %u \nPex[2] - %u\n---\n", getIntegerBasedOnColor(*getColor(pexFirst)),getIntegerBasedOnColor(*getColor(pexSecond)));
-    printf("Pex[1] - %c \nPex[2] - %c\n", getLabel(pexFirst),getLabel(pexSecond));
+    //printf("Checking match..\n");
+    //printf("Pex[1] - %u \nPex[2] - %u\n---\n", getIntegerBasedOnColor(*getColor(pexFirst)),getIntegerBasedOnColor(*getColor(pexSecond)));
+    //printf("Pex[1] - %c \nPex[2] - %c\n", getLabel(pexFirst),getLabel(pexSecond));
     if(getIntegerBasedOnColor(*getColor(pexFirst)) == getIntegerBasedOnColor(*getColor(pexSecond)) && getLabel(pexFirst) == getLabel(pexSecond))
     {
+        pexFirst->wasFound = sfTrue;
+        pexSecond->wasFound = sfTrue;
         printf("Pexeso are matching!\n");
         ret = true;
+
+
+
     }
     return ret;
+}
+
+void isGameFinished(Server* server){
+    server->isGameFinished = true;
+    int totalCards = server->currentGrid->rows * server->currentGrid->columns;
+    for (int i = 0; i < totalCards; i++) {
+        Pexeso* card = server->currentGrid->pexesoObjects[i];
+        if (!card->wasFound) {
+            server->isGameFinished = false;
+            return;
+        }
+    }
 }
 
 Pexeso* findByID(Server* server, int id) {
@@ -60,7 +88,7 @@ Pexeso* findByID(Server* server, int id) {
         Pexeso* card = server->currentGrid->pexesoObjects[i];
         if(id == getID(card))
         {
-            printf("Found card by ID: %d == %d\n", id, getID(card));
+            //printf("Found card by ID: %d == %d\n", id, getID(card));
             return card;
         }
     }
@@ -68,13 +96,33 @@ Pexeso* findByID(Server* server, int id) {
     return NULL;
 }
 
+void nextTurn(Server* server) {
+    server->currentClientTurn = (server->currentClientTurn + 1) % server->clientCount;
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "TURN %d\n", server->currentClientTurn);
+    printf("[SERVER]Sending TURN to client with ID %d", server->currentClientTurn);
+    broadcast_message(server, buffer);
+}
+void addPointsToCurrentClient(Server* server, bool addPoints) {
+    pthread_mutex_lock(&server->clientMutex);
+    int currentClient = server->currentClientTurn;
+    if(addPoints) {
+        server->points[currentClient] += 100;
+    }
+    int currentPoints = server->points[currentClient];
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "UPDATE %d\n", currentPoints);
+    if (sfTcpSocket_send(server->clients[currentClient], buffer, strlen(buffer)) != sfSocketDone) {
 
-
+    }
+    printf("[SERVER] Broadcasting - update points. %s", buffer);
+    pthread_mutex_unlock(&server->clientMutex);
+}
 void* handle_client(void* arg) {
-    ClientHandlerArgs* args = (ClientHandlerArgs*)arg;
+    ClientArg* args = (ClientArg*)arg;
     Server* server = args->server;
     sfTcpSocket* client = args->client;
-
+    srand(time(NULL));
     free(args);
 
     printf("Client connected! Number of clients connected: %d\n", server->clientCount);
@@ -95,7 +143,12 @@ void* handle_client(void* arg) {
         char rowColMsg[128];
         snprintf(rowColMsg, sizeof(rowColMsg), "GRID %d %d\n", rows, cols);
         broadcast_message(server, rowColMsg);
-
+        broadcast_clientID(server);
+        char randTurnMsg[8];
+        int randomStartTurn = rand() % server->clientCount;
+        server->currentClientTurn = randomStartTurn;
+        snprintf(randTurnMsg, sizeof(randTurnMsg), "TURN %d\n", randomStartTurn);
+        broadcast_message(server, randTurnMsg);
         pthread_mutex_lock(&server->clientMutex);
         server->gridRows = rows;
         server->gridCols = cols;
@@ -111,6 +164,7 @@ void* handle_client(void* arg) {
         printf("Grid generated on server\n");
         pexeso_grid_generate(server->currentGrid);
         broadcast_grid(server);
+        server->isGameRunning = true;
     }else {
         printf("Unexpected first message: %s\n", data);
     }
@@ -143,7 +197,6 @@ void* handle_client(void* arg) {
             int cardID;
             if (sscanf(data, "CARD_CLICK %d", &cardID) == 1) {
                 printf("Received card click: ID=%d\n", cardID);
-
                 size_t len = strlen(data);
                 data[len] = '\n';
                 broadcast_message(server, data);
@@ -158,16 +211,32 @@ void* handle_client(void* arg) {
                         printf("MATCH found on the server!\n");
                         broadcastPairedCards(server, getID(server->revealedPexesoCards[0]),
                                              getID(server->revealedPexesoCards[1]));
+                        addPointsToCurrentClient(server, true);
+
                     } else {
                         printf("Pexeso are not matching - resetting.\n");
                         broadcastResetCards(server, getID(server->revealedPexesoCards[0]),
                                             getID(server->revealedPexesoCards[1]));
+                        nextTurn(server);
+                        addPointsToCurrentClient(server, false);
                     }
                     server->pexesoToCompare = 0;
                     server->revealedPexesoCards[0] = NULL;
                     server->revealedPexesoCards[1] = NULL;
+                    isGameFinished(server);
+                    if(server->isGameRunning)
+                    {
+                        printf("[SERVER]Game is running.\n");
+                        if(server->isGameFinished){
+                            printf("[SERVER]Game finished.\n");
+                            char winMsg[5];
+                            snprintf(winMsg, sizeof(winMsg), "WIN\n");
+                            broadcast_message(server, winMsg);
+                        }
+                    }
 
                 }
+
             } else {
                 printf("Invalid CARD message: %s\n", data);
             }
@@ -203,9 +272,13 @@ void* handle_client(void* arg) {
 }
 
 int main() {
-    Server server = { .clientCount = 0, .gridRows = 10, .gridCols = 10, .pexesoToCompare = 0 };
+    Server server = { .clientCount = 0, .gridRows = 10, .gridCols = 10, .pexesoToCompare = 0, .isGameFinished = false, .isGameRunning = false };
+    printf("before\n");
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        server.points[i] = 0;
+    }
+    printf("after\n");
     pthread_mutex_init(&server.clientMutex, NULL);
-
     sfTcpListener* listener = sfTcpListener_create();
     if (!listener) {
         printf("Failed to create listener\n");
@@ -238,7 +311,7 @@ int main() {
         server.clients[server.clientCount++] = client;
         pthread_mutex_unlock(&server.clientMutex);
 
-        ClientHandlerArgs* args = malloc(sizeof(ClientHandlerArgs));
+        ClientArg* args = malloc(sizeof(ClientArg));
         args->server = &server;
         args->client = client;
 

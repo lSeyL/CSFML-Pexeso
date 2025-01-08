@@ -76,6 +76,6 @@ void update_timer_label(Game* game, char* buffer, size_t bufferSize);
 //mp
 void game_handle_event(Game* game, const sfEvent* event);
 void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* window, sfTcpSocket* socket);
-void game_handle_event_multiplayer(Game* game, const sfEvent* event);
+void game_handle_event_multiplayer(Game* game, const sfEvent* event, bool isMyTurn);
 void sendGridToServer(Game* game, sfTcpSocket* socket);
 #endif //PEXESO_GAME_H
