@@ -32,15 +32,17 @@ Follow these steps to set up and run the game on your machine.
    ```
 
 2. **Build the Project**:
-   - Use the provided `Makefile`:
+   - Use mingw64 with CMakeLists.txt or the provided `Makefile`:
      ```bash
-     make
+     make /all
      ```
-   - Alternatively, compile manually:
+    - Or :
      ```bash
-     gcc -o pexeso main.c -lcsfml-graphics -lcsfml-window -lcsfml-system -lcsfml-network
+     make client
      ```
-
+     ```bash
+     make server
+     ```
 3. **Run the Game**:
    ```bash
    ./pexeso
