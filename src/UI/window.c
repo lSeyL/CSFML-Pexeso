@@ -149,6 +149,7 @@ Window* window_create() {
     window->socket = NULL;
     pthread_mutex_init(&window->socketMutex, NULL);
     window->isHost = false;
+    window->closeGame = false;
     setDefaultSelectedIndex(window->difficultyButtons, 0);
     setDefaultSelectedIndex(window->modeButtons, 0);
     setDefaultSelectedIndex(window->rowButtons, 2);
@@ -176,6 +177,7 @@ void handleClick(Window *window) {
             if (buttonClicked(window->exitButton, &event)) {
                 *window->currentScreen = EXIT_SCREEN;
                 sfRenderWindow_close(window->renderWindow);
+                windowDestroy(window);
             }
         }
         //single
@@ -330,6 +332,7 @@ void handleClick(Window *window) {
                     sprintf(infoMessage, "%s won the game.",
                             playerWon ? "Player" : "Bot");
                     label_set_text(window->infoLabel, infoMessage);
+                    window->closeGame = true;
                 }
             }
 
@@ -341,6 +344,7 @@ void handleClick(Window *window) {
             } else {
                 printf("Game finished\n");
                 *window->currentScreen = WIN_SCREEN;
+                window->closeGame = true;
             }
 
         }
@@ -430,7 +434,12 @@ void windowStart(Window* window) {
         handleClick(window);
         draw(window, *window->currentScreen);
         sfRenderWindow_display(window->renderWindow);
+        if(window->closeGame) {
+            sfSleep(sfMilliseconds(5000));
+            break;
+        }
     }
+    windowDestroy(window);
 }
 
 void windowDestroy(Window* window) {

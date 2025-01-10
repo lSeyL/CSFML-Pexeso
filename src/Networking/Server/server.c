@@ -251,6 +251,7 @@ void* handle_client(void* arg) {
                             char winMsg[5];
                             snprintf(winMsg, sizeof(winMsg), "WIN\n");
                             broadcast_message(server, winMsg);
+                            server->isGameRunning = false;
                         }
                     }
 
@@ -323,6 +324,12 @@ int main() {
         } else {
             pthread_detach(client_thread);
             printf("Client thread created.\n");
+        }
+
+        if(!server.isGameRunning && server.clientCount == 0)
+        {
+            free(args);
+            break;
         }
     }
 

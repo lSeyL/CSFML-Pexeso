@@ -67,6 +67,7 @@ typedef struct {
     int mp_ClientIDTurn;
     int mp_ClientID;
     char playerName[32];
+    bool closeGame;
 } Window;
 
 Window* window_create();
