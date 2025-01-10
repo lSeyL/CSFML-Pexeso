@@ -91,6 +91,6 @@ Pexeso/
 
 - **Author**: Martin Grísa
 - **Email**: martinngrisa@gmail.com
-- **GitHub**: [Seil](https://github.com/lSeyL))
+- **GitHub**: [lSeyL](https://github.com/lSeyL)
 
 Feel free to reach out if you have questions or suggestions!
