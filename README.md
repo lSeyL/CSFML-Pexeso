@@ -32,9 +32,16 @@ Follow these steps to set up and run the game on your machine.
    ```
 
 2. **Build the Project**:
-   - Use the provided `Makefile`:
+   - Use mingw64 with CMakeLists.txt or the provided `Makefile`:
      ```bash
-     make /all/client/server
+     make /all
+     ```
+    - Or :
+     ```bash
+     make client
+     ```
+     ```bash
+     make server
      ```
    - Alternatively, compile manually:
      ```bash
