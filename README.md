@@ -34,7 +34,7 @@ Follow these steps to set up and run the game on your machine.
 2. **Build the Project**:
    - Use the provided `Makefile`:
      ```bash
-     make
+     make /all/client/server
      ```
    - Alternatively, compile manually:
      ```bash
