@@ -303,7 +303,6 @@ void handleClick(Window *window) {
         if (*window->currentScreen == SINGLE_PLAYER_STARTED) {
             //printf("game handle event\n");
             game_handle_event(window->game, &event);
-            // Refresh points sp
             char whosTurnText[256];
             char numPointsText[256];
             if(window->game->isPlayerTurn){
@@ -496,6 +495,8 @@ void create_listener(Window* window)
         //fgets(ip, sizeof(ip), stdin);
         serverAddress = sfIpAddress_fromString(ip);
     }
+
+
     sfSocketStatus status = sfTcpSocket_connect(window->socket, serverAddress, 53000, sfSeconds(5.0f));
     if (status != sfSocketDone) {
         printf("Failed to connect to the server\n");
@@ -553,7 +554,6 @@ void* server_listener_thread(void* arg)
                 accumLen += received;
             }
             else {
-                printf("Accumulated buffer overflow, clearing...\n");
                 accumLen = 0;
                 continue;
             }

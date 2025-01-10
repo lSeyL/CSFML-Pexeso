@@ -30,11 +30,16 @@ typedef struct {
     PexesoGrid* currentGrid;
     bool isGameRunning;
     bool isGameFinished;
+    bool isServerRunning;
+    sfClock* gameClock;
+    int timeLimit;
 } Server;
 
 typedef struct {
     Server* server;
     sfTcpSocket* client;
+    char name[32];
+
 } ClientArg;
 
 void broadcastPairedCards(Server* server, int cardID1, int cardID2);

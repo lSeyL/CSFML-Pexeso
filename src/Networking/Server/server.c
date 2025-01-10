@@ -172,7 +172,26 @@ void* handle_client(void* arg) {
     while (1) {
         if (sfTcpSocket_receive(client, data, sizeof(data) - 1, &received) != sfSocketDone) {
             printf("Client disconnected or an error occurred\n");
-            break;
+
+            pthread_mutex_lock(&server->clientMutex);
+            if (server->clients[server->currentClientTurn] == client) {
+                printf("Disconnected client was on turn. Moving to the next turn.\n");
+                nextTurn(server);
+            } else {
+                printf("Disconnected client was not on turn.\n");
+            }
+            for (int i = 0; i < server->clientCount; ++i) {
+                if (server->clients[i] == client) {
+                    server->clients[i] = server->clients[--server->clientCount];
+                    break;
+                }
+            }
+
+            pthread_mutex_unlock(&server->clientMutex);
+            sfTcpSocket_destroy(client);
+            printf("Socket for disconnected client destroyed.\n");
+
+            return NULL;
         }
 
         data[received] = '\0';
@@ -242,42 +261,21 @@ void* handle_client(void* arg) {
             }
 
         } else if(strncmp(data, "PAIRED_CARDS", 12) == 0) {
-            /*
-            int cardID_1, cardID_2;
-            if (sscanf(data,"PAIRED_CARDS %d %d", &cardID_1, &cardID_2) == 2) {
-                printf("Received matching IDs ID_1=%d, ID_2=%d\n", cardID_1, cardID_2);
-                broadcast_message(server, data);
-            }
-             */
-
+            //
         } else if (strncmp(data, "OK", 2) == 0) {
             printf("Acknowledgment received from client: %s\n", data);
         } else {
             printf("Error ? %s\n", data);
         }
     }
-
-    // Cleanup the client
-    pthread_mutex_lock(&server->clientMutex);
-    for (int i = 0; i < server->clientCount; ++i) {
-        if (server->clients[i] == client) {
-            server->clients[i] = server->clients[--server->clientCount];
-            break;
-        }
-    }
-    pthread_mutex_unlock(&server->clientMutex);
-
-    sfTcpSocket_destroy(client);
-    return NULL;
 }
 
 int main() {
     Server server = { .clientCount = 0, .gridRows = 10, .gridCols = 10, .pexesoToCompare = 0, .isGameFinished = false, .isGameRunning = false };
-    printf("before\n");
     for (int i = 0; i < MAX_CLIENTS; i++) {
         server.points[i] = 0;
     }
-    printf("after\n");
+
     pthread_mutex_init(&server.clientMutex, NULL);
     sfTcpListener* listener = sfTcpListener_create();
     if (!listener) {

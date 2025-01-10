@@ -14,11 +14,11 @@
 #include "Pexeso.h"
 
 typedef struct {
-    int rows;                   // Number of rows
-    int columns;                // Number of columns
-    sfVector2f startPosition;   // Starting position for the grid
-    sfVector2f pexesoSize;      // Size of each Pexeso card
-    Pexeso** pexesoObjects;     // Array of pointers to Pexeso objects
+    int rows;
+    int columns;
+    sfVector2f startPosition;
+    sfVector2f pexesoSize;
+    Pexeso** pexesoObjects;
 } PexesoGrid;
 
 PexesoGrid* pexeso_grid_create(int rows, int columns, sfVector2f startPosition, sfVector2f pexesoSize, bool generate);

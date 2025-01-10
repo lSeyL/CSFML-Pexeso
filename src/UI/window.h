@@ -66,11 +66,11 @@ typedef struct {
     bool mp_isMyTurn;
     int mp_ClientIDTurn;
     int mp_ClientID;
-    char name[32];
+    char playerName[32];
 } Window;
 
 Window* window_create();
-void handleClickEvents(Window* window);
+void handleClick(Window* window);
 void draw(Window* window, Screen currentScreen);
 void windowStart(Window* window);
 void windowDestroy(Window* window);

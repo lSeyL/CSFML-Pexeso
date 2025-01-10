@@ -100,7 +100,6 @@ void game_handle_event(Game* game, const sfEvent* event) {
 
     static Pexeso* revealedCards[2] = {NULL, NULL};
 
-    // Handle card hiding
     if (waitingToHide && sfTime_asSeconds(sfClock_getElapsedTime(revealTimer)) > 2.0f) {
         printf("Hiding cards\n");
         if (revealedCards[0] && revealedCards[1]) {
