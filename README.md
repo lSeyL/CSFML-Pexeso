@@ -43,11 +43,6 @@ Follow these steps to set up and run the game on your machine.
      ```bash
      make server
      ```
-   - Alternatively, compile manually:
-     ```bash
-     gcc -o pexeso main.c -lcsfml-graphics -lcsfml-window -lcsfml-system -lcsfml-network
-     ```
-
 3. **Run the Game**:
    ```bash
    ./pexeso
