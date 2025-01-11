@@ -451,8 +451,11 @@ void windowDestroy(Window* window) {
     if (window->singlePlayerButton) buttonDestroy(window->singlePlayerButton);
     if (window->multiplayerButton)buttonDestroy(window->multiplayerButton);
     if (window->exitButton)buttonDestroy(window->exitButton);
+    if (window->backButton)buttonDestroy(window->backButton);
+    if (window->startButton)buttonDestroy(window->startButton);
     if (window->hostGameButton)buttonDestroy(window->hostGameButton);
     if (window->joinGameButton)buttonDestroy(window->joinGameButton);
+    if (window->okButton)buttonDestroy(window->okButton);
     //
     if (window->header)headerDestroy(window->header);
     if (window->renderWindow) sfRenderWindow_destroy(window->renderWindow);
@@ -460,11 +463,17 @@ void windowDestroy(Window* window) {
     if (window->columnButtons)settersDestroy(window->columnButtons);
     if (window->modeButtons)settersDestroy(window->modeButtons);
     if (window->difficultyButtons)settersDestroy(window->difficultyButtons);
-
+    //label
     if (window->rowLabel)label_destroy(window->rowLabel);
     if (window->colLabel)label_destroy(window->colLabel);
     if (window->errorLabel)label_destroy(window->errorLabel);
     if (window->infoLabel)label_destroy(window->infoLabel);
+    if (window->spPlayerTurn)label_destroy(window->spPlayerTurn);
+    if (window->spPoints)label_destroy(window->spPoints);
+    if (window->timeLabel)label_destroy(window->timeLabel);
+    if (window->timeNumLabel)label_destroy(window->timeNumLabel);
+    if (window->playersLabel)label_destroy(window->playersLabel);
+
     if (window->font)sfFont_destroy(window->font);
 
     if (window->game)game_destroy(window->game);
@@ -532,6 +541,7 @@ void* server_listener_thread(void* arg)
     char readBuffer[256];
     static char accumulatedBuffer[1024];
     size_t accumLen = 0;
+    sfTcpSocket_setBlocking(window->socket, sfFalse);
     while (1)
     {
         pthread_mutex_lock(&window->socketMutex);
@@ -548,7 +558,7 @@ void* server_listener_thread(void* arg)
             break;
         }
         else if (status == sfSocketNotReady) {
-            sfSleep(sfMilliseconds(10));
+            sfSleep(sfMilliseconds(100));
             continue;
         }
         else if (status == sfSocketError) {
@@ -594,6 +604,9 @@ void* server_listener_thread(void* arg)
 
     if (strncmp(line, "GRID", 4) == 0) {
         handleGridCommand(window, line);
+    }
+    else if(strncmp(line, "PING", 4) == 0){
+        handlePing(window, line);
     }
     else if (strncmp(line, "START_GAME", 10) == 0) {
         handleStartGameCommand(window, line);
@@ -756,6 +769,7 @@ void handleClientTurn(Window* window, const char* line) {
     int id;
     if (sscanf(line, "TURN %d", &id) == 1) {
         char turnText[64];
+        printf("My turn: %d, Server turn: %d \n",window->mp_ClientID, id );
         if(window->mp_ClientID == id) {
             printf("My turn.\n");
             window->mp_isMyTurn = true;
@@ -785,6 +799,15 @@ void handleUpdatePoints(Window* window, const char* line) {
         char pointsText[64];
         sprintf(pointsText, "%d points", points);
         label_set_text(window->spPoints, pointsText);
+    }
+}
+void handlePing(Window* window, const char* line) {
+    if (sscanf(line, "PING") == 0) {
+        const char* message = "PONG\n";
+        sfSocketStatus status = sfTcpSocket_send(window->socket, message, strlen(message));
+        if (status != sfSocketDone) {
+            printf("Failed to send msg to server.\n");
+        }
     }
 }
 

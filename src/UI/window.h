@@ -78,20 +78,21 @@ void windowDestroy(Window* window);
 
 void create_listener(Window* window);
 void* server_listener_thread(void* arg);
-void processLine(Window* window, const char* line);
+
 //Handlery
+void handleComplete(Window* window);
+void calculateGridLayoutMultiplayer(Window *window);
+void processLine(Window* window, const char* line);
 void handleGridCommand(Window* window, const char* line);
 void handleStartGameCommand(Window* window, const char* line);
 void handleCardClickCommand(Window* window, const char* line);
 void handleGameFinish(Window* window, const char* line);
 void handleGridData(Window* window, const char* line);
-void handleComplete(Window* window);
 void handleResetCards(Window* window, const char* line);
 void handlePairedCards(Window* window, const char* line);
 void handleClientID(Window* window, const char* line);
 void handleClientTurn(Window* window, const char* line);
 void handleUpdatePoints(Window* window, const char* line);
+void handlePing(Window* window, const char* line);
 void send_grid_to_server(sfTcpSocket* socket, int rows, int cols);
-void calculateGridLayoutMultiplayer(Window *window);
-
 #endif //PEXESO_WINDOW_H

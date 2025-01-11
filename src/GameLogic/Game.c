@@ -25,6 +25,9 @@ void game_destroy(Game* game) {
         if (game->grid) {
             pexeso_grid_destroy(game->grid);
         }
+        if(game->gameClock){
+            sfClock_destroy(game->gameClock);
+        }
         free(game);
     }
 }

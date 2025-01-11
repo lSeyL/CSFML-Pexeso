@@ -31,6 +31,7 @@ typedef struct {
     bool isGameRunning;
     bool isGameFinished;
     bool isServerRunning;
+    sfClock* pingClock;
     sfClock* gameClock;
     int timeLimit;
 } Server;
@@ -39,15 +40,15 @@ typedef struct {
     Server* server;
     sfTcpSocket* client;
     char name[32];
-
+    int id;
 } ClientArg;
 
 void broadcastPairedCards(Server* server, int cardID1, int cardID2);
 void broadcastResetCards(Server* server, int cardID1, int cardID2);
 void broadcast_grid(Server* server);
-void broadcast_clientID(Server* server);
+void broadcast_clientID(Server *server, ClientArg* args);
 void broadcast_message(Server* server, const char* message);
-void isGameFinished(Server* server);
+void checkGameState(Server* server);
 void addPointsToCurrentClient(Server* server, bool addPoints);
 bool checkPairedCards(Pexeso* pexFirst, Pexeso* pexSecond);
 Pexeso* findByID(Server* server, int id);
