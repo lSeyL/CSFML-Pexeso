@@ -21,6 +21,7 @@ Game* game_create(sfRenderWindow* renderWindow, Rules* rules) {
 }
 
 void game_destroy(Game* game) {
+    printf("Destroying grid.\n");
     if (game) {
         if (game->grid) {
             pexeso_grid_destroy(game->grid);

@@ -4,11 +4,13 @@
 
 #include "server.h"
 
+void broadcast_winMessage(Server *server);
+
 void broadcast_message(Server *server, const char *message) {
     pthread_mutex_lock(&server->clientMutex);
     printf("[BROADCAST] - Message to clients: %s\n", message);
     for (int i = 0; i < server->clientCount; ++i) {
-        if(server->clients[i]) {
+        if(server->clients[i] != NULL) {
         if (sfTcpSocket_send(server->clients[i], message, strlen(message)) != sfSocketDone) {
             printf("Failed to send message to client %d\n", i);
         }
@@ -59,11 +61,30 @@ void broadcastResetCards(Server *server, int cardID1, int cardID2) {
 }
 
 
-void nextTurn(Server *server) {
+void broadcast_winMessage(Server *server) {
+    char winMsg[512];
+    snprintf(winMsg, sizeof(winMsg), "WIN\n");
+    for (int i = 0; i < server->clientCount; i++) {
+        char playerPoints[64];
+        snprintf(playerPoints, sizeof(playerPoints), "PLAYER %d: %d\n", i + 1, server->points[i]);
+        strncat(winMsg, playerPoints, sizeof(winMsg) - strlen(winMsg) - 1);
+    }
 
+    // Ensure the message ends with a newline character
+    strncat(winMsg, "\n", sizeof(winMsg) - strlen(winMsg) - 1);
+    printf("[Server] Sending WIN message to clients. \n");
+    broadcast_message(server, winMsg);
+    server->isGameRunning = false;
+    server->isGameFinished = true;
+    printf("[Server] Finished Sending WIN message to clients. \n");
+}
+
+void nextTurn(Server *server,bool calculateNext) {
+    if(calculateNext) {
     int current = server->currentClientTurn;
     server->currentClientTurn = (server->currentClientTurn + 1) % server->clientCount;
     printf("Changing turn from: %d -> to -> %d \n", current, server->currentClientTurn );
+    }
     char buffer[32];
     snprintf(buffer, sizeof(buffer), "TURN %d\n", server->currentClientTurn);
     printf("[SERVER]Sending TURN to client with ID %d\n", server->currentClientTurn);
@@ -130,6 +151,13 @@ Pexeso *findByID(Server *server, int id) {
     return NULL;
 }
 
+int get_remaining_time(Server* server) {
+    if (!server->gameClock) return 0;
+    sfTime elapsed = sfClock_getElapsedTime(server->gameClock);
+    int remainingTime = server->timeLimit - sfTime_asSeconds(elapsed);
+    return (remainingTime > 0) ? remainingTime : 0;
+}
+
 void *handle_client(void *arg) {
     ClientArg *args = (ClientArg *) arg;
     Server *server = args->server;
@@ -149,10 +177,10 @@ void *handle_client(void *arg) {
     data[received] = '\0';
     printf("First message from client: %s\n", data);
     if (strncmp(data, "GRID", 4) == 0) {
-        int rows, cols;
-        sscanf(data, "GRID %d %d", &rows, &cols);
+        int rows, cols,timed;
+        sscanf(data, "GRID %d %d %d", &rows, &cols, &timed);
         char rowColMsg[128];
-        snprintf(rowColMsg, sizeof(rowColMsg), "GRID %d %d\n", rows, cols);
+        snprintf(rowColMsg, sizeof(rowColMsg), "GRID %d %d %d\n", rows, cols, timed);
         broadcast_message(server, rowColMsg);
         broadcast_clientID(server, args);
         char randTurnMsg[8];
@@ -163,7 +191,8 @@ void *handle_client(void *arg) {
         pthread_mutex_lock(&server->clientMutex);
         server->gridRows = rows;
         server->gridCols = cols;
-        printf("Set grid dimensions to %dx%d from host\n", rows, cols);
+        server->isTimed = timed == 2;
+        printf("Set grid dimensions to %dx%d from host. %s\n", rows, cols, server->isTimed  ? "Timed" : "Free");
         server->currentGrid = (PexesoGrid *) malloc(sizeof(PexesoGrid));
         server->currentGrid->rows = rows;
         server->currentGrid->columns = cols;
@@ -177,23 +206,33 @@ void *handle_client(void *arg) {
         broadcast_grid(server);
         server->isGameRunning = true;
         sfTcpSocket_setBlocking(client, sfFalse);
+        sfClock_restart(server->gameClock);
     } else {
         printf("Unexpected first message: %s\n", data);
     }
 
     while (1) {
-        sfTime elapsed = sfClock_getElapsedTime(server->pingClock);
-        if (sfTime_asSeconds(elapsed) >= 10.0f) {
-            printf("Sending ping to client...\n");
-            const char *pingMessage = "PING\n";
-            broadcast_message(server, pingMessage);
-            sfClock_restart(server->pingClock);
+        if (server->isTimed) {
+            if (get_remaining_time(server) > 0) {
+                sfTime gameTimeElapsed = sfClock_getElapsedTime(server->gameClock);
+                if (sfTime_asSeconds(gameTimeElapsed) >= 1.0f) {
+                    int time = get_remaining_time(server);
+                    char timeMessage[256];
+                    snprintf(timeMessage, sizeof(timeMessage), "TIME %d\n", time);
+                    broadcast_message(server, timeMessage);
+                }
+            } else {
+                broadcast_winMessage(server);
+            }
         }
 
         sfSocketStatus status = sfTcpSocket_receive(client, data, sizeof(data) - 1, &received);
         if (status == sfSocketDisconnected) {
             printf("Client disconnected or an error occurred\n");
             int currentClientId = args->id;
+            if(currentClientId > MAX_CLIENTS){
+                currentClientId = 0;
+            }
             bool wasClientsTurn = false;
             pthread_mutex_lock(&server->clientMutex);
             if (server->clients[server->currentClientTurn] == client) {
@@ -242,11 +281,12 @@ void *handle_client(void *arg) {
                         pthread_mutex_unlock(&server->clientMutex);
                         server->currentClientTurn = nextClientId;
                         printf("Only one client left.[Turn %d] -> Turn goes to client %d.\n", currentClientId, server->currentClientTurn);
+                        nextTurn(server, false);
                     } else {
                         int curr = server->currentClientTurn;
                         server->currentClientTurn %= server->clientCount;
                         printf("Changing client turn from: %d -> to -> %d\n", curr, server->currentClientTurn);
-                        nextTurn(server);
+                        nextTurn(server, true);
                     }
 
                 } else {
@@ -256,15 +296,8 @@ void *handle_client(void *arg) {
                 }
 
             }
-            printf("Crash 1\n");
             pthread_mutex_unlock(&server->clientMutex);
-            if (args) {
-                free(args);
-                args = NULL;
-            } else {
-                printf("args is NULL. Skipping free.\n");
-            }
-            printf("Crash 2\n");
+
             pthread_mutex_lock(&server->clientMutex);
             if (client) {
                 printf("Destroying client socket: %p\n", (void*)client);
@@ -274,14 +307,11 @@ void *handle_client(void *arg) {
                         break;
                     }
                 }
-                //sfTcpSocket_destroy(client);
                 client = NULL;
             } else {
                 printf("client is NULL. Skipping destroy.\n");
             }
             pthread_mutex_unlock(&server->clientMutex);
-            printf("Crash 3\n");
-            printf("Socket for disconnected client destroyed.\n");
             break;
         } else if (status == sfSocketNotReady) {
             sfSleep(sfMilliseconds(100));
@@ -299,7 +329,7 @@ void *handle_client(void *arg) {
             printf("[SERVER] Received from client: %s\n", data);
             if (strncmp(data, "GRID", 4) == 0) {
                 int rows, cols;
-                sscanf(data, "GRID %d %d\n", &rows, &cols);
+                sscanf(data, "GRID %d %d %d\n", &rows, &cols);
 
                 pthread_mutex_lock(&server->clientMutex);
                 server->gridRows = rows;
@@ -338,7 +368,7 @@ void *handle_client(void *arg) {
                             printf("Pexeso are not matching - resetting.\n");
                             broadcastResetCards(server, getID(server->revealedPexesoCards[0]),
                                                 getID(server->revealedPexesoCards[1]));
-                            nextTurn(server);
+                            nextTurn(server, true);
                             addPointsToCurrentClient(server, false);
                         }
                         pthread_mutex_lock(&server->clientMutex);
@@ -351,11 +381,7 @@ void *handle_client(void *arg) {
                             printf("[SERVER]Game is running.\n");
                             if (server->isGameFinished) {
                                 printf("[SERVER]Game finished.\n");
-                                char winMsg[5];
-                                snprintf(winMsg, sizeof(winMsg), "WIN\n");
-                                broadcast_message(server, winMsg);
-                                server->isGameRunning = false;
-                                server->isGameFinished = true;
+                                broadcast_winMessage(server);
                             }
                         }
 
@@ -370,7 +396,16 @@ void *handle_client(void *arg) {
                 printf("Acknowledgment received from client: %s\n", data);
             } else if (strncmp(data, "PONG", 4) == 0) {
                 printf("Received PONG from client.\n");
-
+            } else if (strncmp(data, "NAME", 4) == 0) {
+                printf("Received NAME from client.\n");
+                char nameFromClient[32];
+                if (sscanf(data, "NAME %31s", nameFromClient) == 1) {
+                    printf("Name of the client is %s.\n", nameFromClient);
+                    strncpy(args->name, nameFromClient, 32);
+                    args->name[31] = '\0';
+                } else {
+                    printf("Failed to parse client name.\n");
+                }
             } else {
                 printf("Error ? %s\n", data);
             }
@@ -382,14 +417,14 @@ void *handle_client(void *arg) {
          */
 
     }
-
     sfTcpSocket_destroy(client);
     printf("Socket for disconnected client destroyed.\n");
     return NULL;
 }
 
 int main() {
-    Server server = {.clientCount = 0, .gridRows = 10, .gridCols = 10, .pexesoToCompare = 0, .isGameFinished = false, .isGameRunning = false};
+    Server server = {.clientCount = 0, .gridRows = 10, .gridCols = 10, .pexesoToCompare = 0,
+                     .isGameFinished = false, .isGameRunning = false, .timeLimit = 100};
     for (int i = 0; i < MAX_CLIENTS; i++) {
         server.points[i] = 0;
     }

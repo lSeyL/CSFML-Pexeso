@@ -38,6 +38,10 @@ void label_set_text(Label* label, const char* text) {
     }
 }
 
+const char* label_get_text(Label* label) {
+    return sfText_getString(label->text);
+}
+
 void label_set_position(Label* label, sfVector2f position) {
     if (label && label->text) {
         sfText_setPosition(label->text, position);

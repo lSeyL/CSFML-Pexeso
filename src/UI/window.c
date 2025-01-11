@@ -131,6 +131,7 @@ Window* window_create() {
     window->spPoints  = label_create("0 points", window->font, (sfVector2f){850, 125}, 45, sfWhite);
     window->timeLabel  = label_create("", window->font, (sfVector2f){850, 250}, 50, sfWhite);
     window->timeNumLabel  = label_create("", window->font, (sfVector2f){850, 325}, 45, sfWhite);
+    window->mpPlayersPointsLabel  = label_create("", window->font, (sfVector2f){25, 25}, 30, sfWhite);
 
     if (!window->rowLabel || !window->colLabel || !window->playersLabel || !window->errorLabel
         || !window->infoLabel  || !window->spPlayerTurn || !window->spPoints || !window->timeLabel || !window->timeNumLabel) {
@@ -273,6 +274,7 @@ void handleClick(Window *window) {
             //setters_handleEvent(window->difficultyButtons, mousePosF);
             window->rowSize = getSelected(window->rowButtons);
             window->colSize = getSelected(window->columnButtons);
+            window->rules->mode = getSelectedBase(window->modeButtons);
             if (buttonClicked(window->backButton, &event)) {
                 *window->currentScreen = MAIN_MENU;
             }
@@ -285,7 +287,7 @@ void handleClick(Window *window) {
                     if (window->isHost) {
                         printf("Hosting server...\n");
                         create_listener(window);
-                        send_grid_to_server(window->socket, window->rowSize, window->colSize);
+                        send_grid_to_server(window->socket, window->rowSize, window->colSize, window->rules->mode);
 
                     }
 
@@ -344,9 +346,14 @@ void handleClick(Window *window) {
             } else {
                 printf("Game finished\n");
                 *window->currentScreen = WIN_SCREEN;
-                window->closeGame = true;
+
             }
 
+        }
+        if (*window->currentScreen == WIN_SCREEN) {
+            if(buttonClicked(window->okButton, &event)) {
+                window->closeGame = true;
+            }
         }
 
     }
@@ -420,9 +427,18 @@ void draw(Window* window, Screen currentScreen) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
         label_draw(window->spPlayerTurn, window->renderWindow);
         label_draw(window->spPoints, window->renderWindow);
+        if(window->rules->mode == 2) {
+            label_draw(window->timeLabel, window->renderWindow);
+            label_draw(window->timeNumLabel, window->renderWindow);
+        }
         game_draw(window->game, window->renderWindow);
     }else if (currentScreen == WIN_SCREEN) {
+        sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
+        sfRenderWindow_drawRectangleShape(window->renderWindow, window->okButton->shape, NULL);
         label_draw(window->infoLabel, window->renderWindow);
+        label_draw(window->mpPlayersPointsLabel, window->renderWindow);
+
+
     }
 
 
@@ -435,10 +451,11 @@ void windowStart(Window* window) {
         draw(window, *window->currentScreen);
         sfRenderWindow_display(window->renderWindow);
         if(window->closeGame) {
-            sfSleep(sfMilliseconds(5000));
+            sfSleep(sfMilliseconds(1000));
             break;
         }
     }
+    printf("Destroying game/window.\n");
     windowDestroy(window);
 }
 
@@ -473,9 +490,9 @@ void windowDestroy(Window* window) {
     if (window->timeLabel)label_destroy(window->timeLabel);
     if (window->timeNumLabel)label_destroy(window->timeNumLabel);
     if (window->playersLabel)label_destroy(window->playersLabel);
+    if (window->mpPlayersPointsLabel)label_destroy(window->mpPlayersPointsLabel);
 
     if (window->font)sfFont_destroy(window->font);
-
     if (window->game)game_destroy(window->game);
     if (window->rules)rules_destroy(window->rules);
 
@@ -567,6 +584,7 @@ void* server_listener_thread(void* arg)
         }
         else if (status == sfSocketDone)
         {
+            printf("Received data. \n");
             readBuffer[received] = '\0';
             if (accumLen + received < sizeof(accumulatedBuffer)) {
                 memcpy(accumulatedBuffer + accumLen, readBuffer, received + 1);
@@ -583,6 +601,7 @@ void* server_listener_thread(void* arg)
                     break;
                 }
                 *newlinePos = '\0';
+                printf("Processing with - %s \n", start);
                 processLine(window, start);
                 start = newlinePos + 1;
             }
@@ -605,8 +624,14 @@ void* server_listener_thread(void* arg)
     if (strncmp(line, "GRID", 4) == 0) {
         handleGridCommand(window, line);
     }
+    else if(strncmp(line, "TIME", 4) == 0){
+        handleTime(window, line);
+    }
     else if(strncmp(line, "PING", 4) == 0){
         handlePing(window, line);
+    }
+    else if(strncmp(line, "PLAYER", 6) == 0){
+        handlePoints(window, line);
     }
     else if (strncmp(line, "START_GAME", 10) == 0) {
         handleStartGameCommand(window, line);
@@ -645,12 +670,13 @@ void* server_listener_thread(void* arg)
 
  void handleGridCommand(Window* window, const char* line)
 {
-    int rows, cols;
-    if (sscanf(line, "GRID %d %d", &rows, &cols) == 2) {
+    int rows, cols, timed;
+    if (sscanf(line, "GRID %d %d %d", &rows, &cols, &timed) == 3) {
         if (!window->game->isRunning) {
             pthread_mutex_lock(&window->socketMutex);
             window->colSize = cols;
             window->rowSize = rows;
+            window->rules->mode = timed;
             calculateGridLayoutMultiplayer(window);
             pthread_mutex_unlock(&window->socketMutex);
         }
@@ -686,6 +712,24 @@ void* server_listener_thread(void* arg)
             }
         }
     }
+}
+void handlePoints(Window* window, const char* line) {
+    printf("[Debug] Processing WIN message:\n%s\n", line);
+    const char* currentLabelText = label_get_text(window->mpPlayersPointsLabel);
+    char finalMessage[512];
+
+    snprintf(finalMessage, sizeof(finalMessage), "%s", currentLabelText);
+    int playerId, points;
+    int charsRead = 0;
+    if (sscanf(line, " PLAYER %d: %d\n%n", &playerId, &points, &charsRead) == 2) {
+        char playerInfo[64];
+        snprintf(playerInfo, sizeof(playerInfo), "Player %d: %d\n", playerId, points);
+        strncat(finalMessage, playerInfo, sizeof(finalMessage) - strlen(finalMessage) - 1);
+    } else {
+        printf("[Error] Failed to parse line: %s\n", line);
+    }
+    label_set_text(window->mpPlayersPointsLabel, finalMessage);
+    printf("[Debug] Final points displayed:\n%s\n", finalMessage);
 }
 
  void handleGridData(Window* window, const char* line)
@@ -785,12 +829,14 @@ void handleClientTurn(Window* window, const char* line) {
 }
 void handleGameFinish(Window* window, const char* line)
 {
+    printf("Received finish");
     if (sscanf(line, "WIN") == 0)
     {
         window->mp_gameFinished = true;
-        char infoMessage[256];
-        sprintf(infoMessage, "The game has finished.");
-        label_set_text(window->infoLabel, infoMessage);
+        char pointsMessage[256] = "The game has finished.\n";
+        sfVector2f pos = {pos.x = 250, pos.y = 275};
+        label_set_position(window->infoLabel,pos);
+        label_set_text(window->infoLabel, pointsMessage);
     }
 }
 void handleUpdatePoints(Window* window, const char* line) {
@@ -811,15 +857,25 @@ void handlePing(Window* window, const char* line) {
     }
 }
 
+void handleTime(Window* window, const char* line) {
+    int timeLeft = 0;
+    if (sscanf(line, "TIME %d", &timeLeft) == 1) {
+        char timeText[64];
+        sprintf(timeText, "%02d:%02d", timeLeft / 60,timeLeft % 60);
+        label_set_text(window->timeNumLabel, timeText);
+    }
 
-void send_grid_to_server(sfTcpSocket* socket, int rows, int cols) {
+}
+
+
+void send_grid_to_server(sfTcpSocket* socket, int rows, int cols, int timed) {
     if (!socket) {
         printf("Socket is NULL. Cannot send grid.\n");
         return;
     }
 
     char message[256];
-    snprintf(message, sizeof(message), "GRID %d %d\n", rows, cols);
+    snprintf(message, sizeof(message), "GRID %d %d %d\n", rows, cols, timed);
 
     sfSocketStatus status = sfTcpSocket_send(socket, message, strlen(message));
     if (status != sfSocketDone) {
@@ -828,6 +884,7 @@ void send_grid_to_server(sfTcpSocket* socket, int rows, int cols) {
         printf("Grid sent to server: %s\n", message);
     }
 }
+
 
 
 void calculateGridLayoutMultiplayer(Window *window)

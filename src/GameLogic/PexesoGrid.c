@@ -20,6 +20,7 @@ PexesoGrid* pexeso_grid_create(int rows, int columns, sfVector2f startPosition, 
 }
 
 void pexeso_grid_destroy(PexesoGrid* grid) {
+    printf("Destroying pexeso objects.\n");
     if (grid) {
         for (int i = 0; i < grid->rows * grid->columns; ++i) {
             if (grid->pexesoObjects[i]) {

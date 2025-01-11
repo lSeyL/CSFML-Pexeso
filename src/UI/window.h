@@ -48,6 +48,7 @@ typedef struct {
     Label* timeLabel;
     Label* timeNumLabel;
     Label* playersLabel;
+    Label* mpPlayersPointsLabel;
     Screen* currentScreen;
     Header* header;
     sfFont* font;
@@ -93,6 +94,9 @@ void handlePairedCards(Window* window, const char* line);
 void handleClientID(Window* window, const char* line);
 void handleClientTurn(Window* window, const char* line);
 void handleUpdatePoints(Window* window, const char* line);
+void handlePoints(Window* window, const char* line);
 void handlePing(Window* window, const char* line);
-void send_grid_to_server(sfTcpSocket* socket, int rows, int cols);
+void handleTime(Window* window, const char* line);
+void send_grid_to_server(sfTcpSocket* socket, int rows, int cols, int timed);
+void send_name_to_server(sfTcpSocket* socket);
 #endif //PEXESO_WINDOW_H

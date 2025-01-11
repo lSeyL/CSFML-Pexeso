@@ -31,6 +31,7 @@ typedef struct {
     bool isGameRunning;
     bool isGameFinished;
     bool isServerRunning;
+    bool isTimed;
     sfClock* pingClock;
     sfClock* gameClock;
     int timeLimit;
@@ -47,11 +48,12 @@ void broadcastPairedCards(Server* server, int cardID1, int cardID2);
 void broadcastResetCards(Server* server, int cardID1, int cardID2);
 void broadcast_grid(Server* server);
 void broadcast_clientID(Server *server, ClientArg* args);
+void broadcast_winMessage(Server *server);
 void broadcast_message(Server* server, const char* message);
 void checkGameState(Server* server);
 void addPointsToCurrentClient(Server* server, bool addPoints);
 bool checkPairedCards(Pexeso* pexFirst, Pexeso* pexSecond);
 Pexeso* findByID(Server* server, int id);
-void nextTurn(Server* server);
+void nextTurn(Server* server, bool calculateNext);
 void* handle_client(void* client_socket);
 #endif //PEXESO_SERVER_H
