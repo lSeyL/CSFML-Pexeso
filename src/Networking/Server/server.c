@@ -158,12 +158,6 @@ int get_remaining_time(Server* server) {
     return (remainingTime > 0) ? remainingTime : 0;
 }
 
-void setActive(Server* server) {
-    if(server->currentClientTurn) {
-
-    }
-}
-
 void *handleClient(void *arg) {
     ClientArg *args = (ClientArg *) arg;
     Server *server = args->server;
