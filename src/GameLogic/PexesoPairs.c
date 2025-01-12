@@ -4,7 +4,7 @@
 #include "PexesoPairs.h"
 
 
-PexesoPair* pexeso_pairs_generate(int rows, int columns) {
+PexesoPair* pexesoPairsGenerate(int rows, int columns) {
     int totalCards = rows * columns;
     if (totalCards % 2 != 0) {
         printf("Invalid grid size: Rows * Columns must be even.\n");
@@ -44,12 +44,12 @@ PexesoPair* pexeso_pairs_generate(int rows, int columns) {
         }
     }
 
-    shuffle_pairs(pairs, totalCards);
+    shufflePairs(pairs, totalCards);
 
     return pairs;
 }
 
-void shuffle_pairs(PexesoPair* pairs, int count) {
+void shufflePairs(PexesoPair* pairs, int count) {
     srand(time(NULL));
     for (int i = count - 1; i > 0; --i) {
         int j = rand() % (i + 1);

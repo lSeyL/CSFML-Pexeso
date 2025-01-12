@@ -4,32 +4,36 @@
 #include "Game.h"
 
 
-Game* game_create(sfRenderWindow* renderWindow, Rules* rules) {
+Game* gameCreate(sfRenderWindow* renderWindow, Rules* rules) {
     Game* game = (Game*)malloc(sizeof(Game));
     if (!game) return NULL;
-    game->win = false;
     game->grid = NULL;
+    game->socket = NULL;
+    game->gameClock = NULL;
     game->rowSize = 0;
     game->colSize = 0;
-    game->isRunning = false;
-    game->isMultiplayer = false;
-    game->socket = NULL;
     game->playerPoints = 0;
     game->botPoints = 0;
+    game->isRunning = false;
+    game->isMultiplayer = false;
     game->gridLoaded = false;
+    game->win = false;
     return game;
 }
 
-void game_destroy(Game* game) {
+void gameDestroy(Game* game) {
     printf("Destroying grid.\n");
     if (game) {
         if (game->grid) {
-            pexeso_grid_destroy(game->grid);
+            pexesoGridDestroy(game->grid);
+            game->grid = NULL;
         }
         if(game->gameClock){
             sfClock_destroy(game->gameClock);
+            game->gameClock = NULL;
         }
         free(game);
+        game = NULL;
     }
 }
 
@@ -38,7 +42,7 @@ bool checkWinCondition(Game* game) {
         return false;
     }
     if(game->mode == 2 ) {
-        if(get_remaining_time(game) == 0) {
+        if(getRemainingTime(game) == 0) {
             printf("Out of time.\n");
             game->win = true;
             return true;
@@ -54,7 +58,7 @@ bool checkWinCondition(Game* game) {
     return true;
 }
 
-void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* window, int difficulty, int mode) {
+void gameStartSingleplayer(Game* game, int rows, int cols, sfRenderWindow* window, int difficulty, int mode) {
     game->rowSize = rows;
     game->colSize = cols;
     game->isPlayerTurn = true;
@@ -72,7 +76,7 @@ void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* win
         }
     }
     calculateGridLayout(game, window);
-    game->grid = pexeso_grid_create(rows, cols, game->gridStartPosition, game->tileSize, true);
+    game->grid = pexesoGridCreate(rows, cols, game->gridStartPosition, game->tileSize, true);
     if (!game->grid) {
         printf("Failed to create Pexeso grid\n");
         return;
@@ -82,7 +86,7 @@ void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* win
     game->isRunning = true;
 }
 
-void game_handle_event(Game* game, const sfEvent* event) {
+void gameHandleEvent(Game* game, const sfEvent* event) {
     if (!game || !game->isRunning) return;
 
     if (checkWinCondition(game)) {
@@ -129,13 +133,13 @@ void game_handle_event(Game* game, const sfEvent* event) {
 
     if (game->isPlayerTurn) {
         if (event->type == sfEvtMouseButtonPressed) {
-            pexeso_grid_handle_click(game->grid, event);
-            game_handle_revealed_cards(game, revealedCards, &inputDisabled, &waitingToHide, revealTimer);
+            pexesoGridHandleClick(game->grid, event);
+            gameHandleRevealedCards(game, revealedCards, &inputDisabled, &waitingToHide, revealTimer);
         }
     } else {
         printf("Bot turn\n");
         if (!game->isMultiplayer && !waitingToHide && !inputDisabled) {
-            bot_take_turn(game, revealTimer, revealedCards, &inputDisabled, &waitingToHide);
+            bot_makeTurn(game, revealTimer, revealedCards, &inputDisabled, &waitingToHide);
             if (!waitingToHide && !inputDisabled) {
                 game->isPlayerTurn = true;
                 printf("Turn switched back to Player.\n");
@@ -146,7 +150,7 @@ void game_handle_event(Game* game, const sfEvent* event) {
 
 
 
-void bot_take_turn(Game* game, sfClock* revealTimer, Pexeso* revealedCards[2], bool* inputDisabled, bool* waitingToHide) {
+void bot_makeTurn(Game* game, sfClock* revealTimer, Pexeso *revealedCards[2], bool* inputDisabled, bool* waitingToHide) {
     if (!game || !game->isRunning || *inputDisabled || *waitingToHide) return;
 
     printf("Bot's turn!\n");
@@ -156,7 +160,7 @@ void bot_take_turn(Game* game, sfClock* revealTimer, Pexeso* revealedCards[2], b
 
     if (game->difficulty > 1) {
         printf("Difficulty: %d\n", game->difficulty);
-        bot_sync_memory(game);
+        bot_sync(game);
         for (int i = 0; i < game->memoryCount; ++i) {
             Pexeso* card1 = game->grid->pexesoObjects[game->memory[i].cardID];
             for (int j = i + 1; j < game->memoryCount; ++j) {
@@ -185,7 +189,7 @@ void bot_take_turn(Game* game, sfClock* revealTimer, Pexeso* revealedCards[2], b
             Pexeso* card = game->grid->pexesoObjects[random];
             if (!card->wasFound && !card->revealed) {
                 reveal(card);
-                bot_remember_card(game, card->id, card->label, getIntegerBasedOnColor(*getColor(card)));
+                bot_rememberCard(game, card->id, card->label, getIntegerBasedOnColor(*getColor(card)));
                 revealedCards[revealedCount++] = card;
                 printf("Bot revealed card: ID=%d, Label=%c\n", card->id, card->label);
             }
@@ -195,10 +199,10 @@ void bot_take_turn(Game* game, sfClock* revealTimer, Pexeso* revealedCards[2], b
 
     if (revealedCount == 2) {
         *inputDisabled = true;
-        game_check_pair(game, revealedCards, waitingToHide, revealTimer);
+        gameCheckPair(game, revealedCards, waitingToHide, revealTimer);
     }
 }
-void bot_remember_card(Game* game, int cardID, char label, unsigned int color) {
+void bot_rememberCard(Game* game, int cardID, char label, unsigned int color) {
     for (int i = 0; i < game->memoryCount; ++i) {
         if (game->memory[i].cardID == cardID) return;
     }
@@ -213,7 +217,7 @@ void bot_remember_card(Game* game, int cardID, char label, unsigned int color) {
     }
 }
 
-void bot_mark_cards_found(Game* game, int cardID1, int cardID2) {
+void bot_markCardsFound(Game* game, int cardID1, int cardID2) {
     for (int i = 0; i < game->memoryCount; ++i) {
         if (game->memory[i].cardID == cardID1 || game->memory[i].cardID == cardID2) {
             printf("Bot found the cards, setting to true.\n");
@@ -221,7 +225,7 @@ void bot_mark_cards_found(Game* game, int cardID1, int cardID2) {
         }
     }
 }
-void bot_sync_memory(Game* game) {
+void bot_sync(Game* game) {
     int writeIndex = 0;
 
     for (int i = 0; i < game->memoryCount; ++i) {
@@ -245,7 +249,7 @@ void debug_grid_mapping(Game* game) {
     }
 }
 
-void game_handle_revealed_cards(Game* game, Pexeso* revealedCards[2], bool* inputDisabled, bool* waitingToHide, sfClock* revealTimer) {
+void gameHandleRevealedCards(Game* game, Pexeso *revealedCards[2], bool* inputDisabled, bool* waitingToHide, sfClock* revealTimer) {
     int revealedCount = 0;
 
     for (int i = 0; i < game->grid->rows * game->grid->columns; ++i) {
@@ -254,7 +258,7 @@ void game_handle_revealed_cards(Game* game, Pexeso* revealedCards[2], bool* inpu
             revealedCards[revealedCount++] = card;
             if(game->difficulty == 3) {
                 printf("Bot remembered player's turn.");
-                bot_remember_card(game, card->id, card->label, getIntegerBasedOnColor(*getColor(card)));
+                bot_rememberCard(game, card->id, card->label, getIntegerBasedOnColor(*getColor(card)));
             }
 
         }
@@ -263,21 +267,21 @@ void game_handle_revealed_cards(Game* game, Pexeso* revealedCards[2], bool* inpu
     if (revealedCount == 2) {
         *inputDisabled = true;
         game->disableSend = true;
-        game_check_pair(game, revealedCards, waitingToHide, revealTimer);
+        gameCheckPair(game, revealedCards, waitingToHide, revealTimer);
     } else {
         game->disableSend = false;
     }
 
 }
 
-void game_check_pair(Game* game, Pexeso* revealedCards[2], bool* waitingToHide, sfClock* revealTimer) {
+void gameCheckPair(Game* game, Pexeso *revealedCards[2], bool* waitingToHide, sfClock* revealTimer) {
     if (getIntegerBasedOnColor(*getColor(revealedCards[0])) == getIntegerBasedOnColor(*getColor(revealedCards[1])) &&
         getLabel(revealedCards[0]) == getLabel(revealedCards[1])) {
         if(game->isPlayerTurn) {
             game->playerPoints += 100;
         } else {
             game->botPoints += 100;
-            bot_mark_cards_found(game, revealedCards[0]->id, revealedCards[1]->id);
+            bot_markCardsFound(game, revealedCards[0]->id, revealedCards[1]->id);
         }
         printf("Bot [%d points], Player [%d points]\n",game->botPoints, game->playerPoints);
         printf("Match found!\n");
@@ -315,18 +319,18 @@ void game_reset_revealed_cards(Game* game,Pexeso* revealedCards[2], bool* inputD
         game->disableSend = false;
     }
 }
-int get_remaining_time(Game* game) {
+int getRemainingTime(Game* game) {
     if (!game->gameClock) return 0;
     sfTime elapsed = sfClock_getElapsedTime(game->gameClock);
     int remainingTime = game->timeLimit - sfTime_asSeconds(elapsed);
     return (remainingTime > 0) ? remainingTime : 0;
 }
-void update_timer_label(Game* game, char* buffer, size_t bufferSize) {
-    int remainingTime = get_remaining_time(game);
+void updateTimerLabel(Game* game, char* buffer, size_t bufferSize) {
+    int remainingTime = getRemainingTime(game);
     snprintf(buffer, bufferSize, "%02d:%02d", remainingTime / 60, remainingTime % 60);
 }
 
-void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* window, sfTcpSocket* socket) {
+void gameStartMultiplayer(Game* game, int rows, int cols, sfRenderWindow* window, sfTcpSocket* socket) {
     if (game->isRunning) {
         printf("Game already running\n");
         return;
@@ -348,7 +352,7 @@ void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* wind
 
 }
 
-void game_handle_event_multiplayer(Game *game, const sfEvent *event, bool isMyTurn) {
+void gameHandleEventMultiplayer(Game *game, const sfEvent *event, bool isMyTurn) {
     if (!game || !game->isRunning || !game->isMultiplayer) return;
 
     if (isMyTurn) {
@@ -409,7 +413,7 @@ void calculateGridLayout(Game* game, sfRenderWindow* window) {
     game->gridStartPosition = startPosition;
 }
 
-void game_draw(Game* game, sfRenderWindow* window) {
+void gameDraw(Game* game, sfRenderWindow* window) {
     if (!game && !game->gridLoaded) {
         printf("Game not initialized.\n");
         return;
@@ -420,6 +424,6 @@ void game_draw(Game* game, sfRenderWindow* window) {
         return;
     }
     //printf("Drawing grid with rows=%d, cols=%d\n", game->rowSize, game->colSize);
-    pexeso_grid_draw(game->grid, window);
+    pexesoGridDraw(game->grid, window);
 }
 

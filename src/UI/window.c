@@ -4,29 +4,42 @@
 #include "window.h"
 #include <stdlib.h>
 
-Window* window_create() {
-    Window* window = (Window*)malloc(sizeof(Window));
-    window->currentScreen = (Screen*)malloc(sizeof(Screen));
-    window->font = sfFont_createFromFile("../../Resources/Roboto-Light.ttf");
-    if (!window->font) {
-        printf("Window - Failed to load font\n");
+Window *window_create() {
+    Window *window = (Window *) malloc(sizeof(Window));
+    if (!window) {
+        return NULL;
+    }
+    window->currentScreen = (Screen *) malloc(sizeof(Screen));
+    if (!window->currentScreen) {
+        windowDestroy(window);
         return NULL;
     }
     *window->currentScreen = MAIN_MENU;
+    window->font = sfFont_createFromFile("../../Resources/Roboto-Light.ttf");
+    if (!window->font) {
+        printf("Window - Failed to load font\n");
+        windowDestroy(window);
+        return NULL;
+    }
+    window->renderWindow = NULL;
     window->renderWindow = sfRenderWindow_create(
             (sfVideoMode){1200, 800, 32}, "Pexeso", sfResize | sfClose, NULL);
     if (!window->renderWindow) {
-        free(window);
+        windowDestroy(window);
         return NULL;
     }
     window->backgroundTexture = sfTexture_createFromFile("../../Resources/backgroundImage.png", NULL);
     if (!window->backgroundTexture) {
-        printf("Failed to load background texture\n");
-        sfRenderWindow_destroy(window->renderWindow);
-        free(window);
+        printf("Failed to load the background texture.\n");
+        windowDestroy(window);
         return NULL;
     }
     window->backgroundSprite = sfSprite_create();
+    if(!window->backgroundSprite) {
+        printf("Failed to create the background sprite.\n");
+        windowDestroy(window);
+        return NULL;
+    }
     sfSprite_setTexture(window->backgroundSprite, window->backgroundTexture, sfTrue);
     window->header = headerCreate("../../Resources/header_logo.png", 0, 0);
     if (!window->header) {
@@ -39,6 +52,7 @@ Window* window_create() {
     window->rowButtons = setterCreateWithNumbers(&rowStartPosition, &buttonSize, 9, window->font);
     if (! window->rowButtons) {
         printf("Failed to create row buttons\n");
+        windowDestroy(window);
         return NULL;
     }
     highlightButton(window->rowButtons, 2);
@@ -46,6 +60,7 @@ Window* window_create() {
     window->columnButtons = setterCreateWithNumbers(&columnStartPosition, &buttonSize, 9, window->font);
     if (!window->columnButtons) {
         printf("Failed to create column buttons\n");
+        windowDestroy(window);
         return NULL;
     }
     highlightButton(    window->columnButtons, 2);
@@ -56,6 +71,7 @@ Window* window_create() {
     window->modeButtons = setterCreateWithName(&modeStartPosition, &modeButtonSize, modeLabels, 2, window->font);
     if (!window->modeButtons) {
         printf("Failed to create mode buttons\n");
+        windowDestroy(window);
         return NULL;
     }
     highlightButton(window->modeButtons, 0);
@@ -65,6 +81,7 @@ Window* window_create() {
     window->difficultyButtons = setterCreateWithName(&difficultyStartPosition, &difficultyButtonSize, difficultyLabels, 3, window->font);
     if (!window->difficultyButtons) {
         printf("Failed to create difficulty buttons\n");
+        windowDestroy(window);
         return NULL;
     }
     highlightButton( window->difficultyButtons, 0);
@@ -76,11 +93,6 @@ Window* window_create() {
     headerSetPos(window->header,
                         (windowSize.x - headerSize.x) / 2.0f,
                         (windowSize.y - headerSize.y) / 2.0f - 200);
-
-
-
-
-
     window->singlePlayerButton = buttonCreate("../../Resources/button_singleplayer.png", 0, 0);
     window->multiplayerButton = buttonCreate("../../Resources/button_multiplayer.png", 0, 0);
     window->exitButton = buttonCreate("../../Resources/button_exit.png", 0, 0);
@@ -121,26 +133,29 @@ Window* window_create() {
     sfRectangleShape_setPosition(window->multiplayerButton->shape, multiplayerPosition);
     sfRectangleShape_setPosition(window->exitButton->shape, exitPosition);
 
-    window->rowLabel = label_create("Columns:", window->font, (sfVector2f){75, 80}, 60, sfWhite);
-    window->colLabel = label_create("Rows:", window->font, (sfVector2f){75, 180}, 60, sfWhite);
-    window->playersLabel = label_create("Players", window->font, (sfVector2f){950, 50}, 50, sfWhite);
-    window->errorLabel  = label_create("", window->font, (sfVector2f){280, 275}, 50, sfRed);
-    window->infoLabel  = label_create("", window->font, (sfVector2f){300, 275}, 75, sfWhite);
+    window->rowLabel = labelCreate("Columns:", window->font, (sfVector2f) {75, 80}, 60, sfWhite);
+    window->colLabel = labelCreate("Rows:", window->font, (sfVector2f) {75, 180}, 60, sfWhite);
+    window->diffLabel = labelCreate("Difficulty:", window->font, (sfVector2f) {75, 380}, 60, sfWhite);
+    window->modeLabel = labelCreate("Mode:", window->font, (sfVector2f) {75, 480}, 60, sfWhite);
+    window->errorLabel  = labelCreate("", window->font, (sfVector2f) {280, 275}, 50, sfRed);
+    window->infoLabel  = labelCreate("", window->font, (sfVector2f) {300, 275}, 75, sfWhite);
 
-    window->spPlayerTurn  = label_create("", window->font, (sfVector2f){850, 50}, 50, sfWhite);
-    window->spPoints  = label_create("0 points", window->font, (sfVector2f){850, 125}, 45, sfWhite);
-    window->timeLabel  = label_create("", window->font, (sfVector2f){850, 250}, 50, sfWhite);
-    window->timeNumLabel  = label_create("", window->font, (sfVector2f){850, 325}, 45, sfWhite);
-    window->mpPlayersPointsLabel  = label_create("", window->font, (sfVector2f){25, 25}, 30, sfWhite);
+    window->spPlayerTurn  = labelCreate("", window->font, (sfVector2f) {850, 50}, 50, sfWhite);
+    window->spPoints  = labelCreate("0 points", window->font, (sfVector2f) {850, 125}, 45, sfWhite);
+    window->timeLabel  = labelCreate("", window->font, (sfVector2f) {850, 250}, 50, sfWhite);
+    window->timeNumLabel  = labelCreate("", window->font, (sfVector2f) {850, 325}, 45, sfWhite);
+    window->mpPlayersPointsLabel  = labelCreate("", window->font, (sfVector2f) {25, 25}, 30, sfWhite);
+    window->playersLabel = labelCreate("Players", window->font, (sfVector2f) {950, 50}, 50, sfWhite);
 
     if (!window->rowLabel || !window->colLabel || !window->playersLabel || !window->errorLabel
-        || !window->infoLabel  || !window->spPlayerTurn || !window->spPoints || !window->timeLabel || !window->timeNumLabel) {
+        || !window->infoLabel  || !window->spPlayerTurn || !window->spPoints || !window->timeLabel || !window->timeNumLabel
+        || !window->mpPlayersPointsLabel || !window->diffLabel || !window->modeLabel) {
         printf("Failed to create a label.\n");
         windowDestroy(window);
         return NULL;
     }
-    window->rules = rules_create();
-    window->game = game_create(window->renderWindow, window->rules);
+    window->rules = rulesCreate();
+    window->game = gameCreate(window->renderWindow, window->rules);
     window->mp_gameFinished = false;
     window->mp_isMyTurn = false;
     window->mp_ClientIDTurn = false;
@@ -177,8 +192,7 @@ void handleClick(Window *window) {
 
             if (buttonClicked(window->exitButton, &event)) {
                 *window->currentScreen = EXIT_SCREEN;
-                sfRenderWindow_close(window->renderWindow);
-                windowDestroy(window);
+                window->closeGame = true;
             }
         }
         //single
@@ -202,12 +216,13 @@ void handleClick(Window *window) {
                     printf("Mode : %d.\n", window->rules->mode);
                     printf("Start with: %dx%d\n", window->rowSize, window->colSize);
                     *window->currentScreen = SINGLE_PLAYER_STARTED;
-                    game_start_singleplayer(window->game, window->colSize, window->rowSize, window->renderWindow, window->rules->difficulty, window->rules->mode);
+                    gameStartSingleplayer(window->game, window->colSize, window->rowSize, window->renderWindow,
+                                          window->rules->difficulty, window->rules->mode);
                 } else {
                     window->canStart = false;
                     char errorMessage[256];
                     sprintf(errorMessage, "Cannot start the game with %d x %d", window->rowSize, window->colSize);
-                    label_set_text(window->errorLabel, errorMessage);
+                    labelSetText(window->errorLabel, errorMessage);
                     printf("Cannot start rows: %d , cols: %d\n", window->rowSize, window->colSize);
                 }
 
@@ -226,14 +241,14 @@ void handleClick(Window *window) {
                 *window->currentScreen = MULTI_PLAYER_HOST;
                 char infoMessage[256];
                 sprintf(infoMessage, "Hosting a server...", window->rowSize, window->colSize);
-                label_set_text(window->infoLabel, infoMessage);
+                labelSetText(window->infoLabel, infoMessage);
             }
             if (buttonClicked(window->joinGameButton, &event)) {
                 printf("back\n");
                 *window->currentScreen = MULTI_PLAYER_JOIN;
                 char infoMessage[256];
                 sprintf(infoMessage, " Joining a server...", window->rowSize, window->colSize);
-                label_set_text(window->infoLabel, infoMessage);
+                labelSetText(window->infoLabel, infoMessage);
             }
         }
         if (*window->currentScreen == MULTI_PLAYER_HOST)
@@ -247,7 +262,7 @@ void handleClick(Window *window) {
                     printf("Failed to start the server.\n");
                     char errorMessage[256];
                     sprintf(errorMessage, "Failed to start the server.");
-                    label_set_text(window->errorLabel, errorMessage);
+                    labelSetText(window->errorLabel, errorMessage);
                     return;
                 }
                 window->isHost = true;
@@ -263,7 +278,7 @@ void handleClick(Window *window) {
                 printf("Joining...\n");
                 //*window->currentScreen = MULTI_PLAYER_TRYJOIN;
                 *window->currentScreen = MULTI_PLAYER_STARTED;
-                create_listener(window);
+                createListener(window);
             }
         }
 
@@ -286,8 +301,8 @@ void handleClick(Window *window) {
                     *window->currentScreen = MULTI_PLAYER_STARTED;
                     if (window->isHost) {
                         printf("Hosting server...\n");
-                        create_listener(window);
-                        send_grid_to_server(window->socket, window->rowSize, window->colSize, window->rules->mode);
+                        createListener(window);
+                        sendGridToServer(window->socket, window->rowSize, window->colSize, window->rules->mode);
 
                     }
 
@@ -295,7 +310,7 @@ void handleClick(Window *window) {
                     window->canStart = false;
                     char errorMessage[256];
                     sprintf(errorMessage, "Cannot start the game with %d x %d", window->rowSize, window->colSize);
-                    label_set_text(window->errorLabel, errorMessage);
+                    labelSetText(window->errorLabel, errorMessage);
                     printf("rows: %d , cols: %d\n", window->rowSize, window->colSize);
                 }
 
@@ -306,7 +321,7 @@ void handleClick(Window *window) {
 
         if (*window->currentScreen == SINGLE_PLAYER_STARTED) {
             //printf("game handle event\n");
-            game_handle_event(window->game, &event);
+            gameHandleEvent(window->game, &event);
             char whosTurnText[256];
             char numPointsText[256];
             if(window->game->isPlayerTurn){
@@ -316,14 +331,14 @@ void handleClick(Window *window) {
                 sprintf(whosTurnText, "Bot's turn");
                 sprintf(numPointsText, "%d points", window->game->botPoints);
             }
-            label_set_text(window->spPlayerTurn, whosTurnText);
-            label_set_text(window->spPoints, numPointsText);
+            labelSetText(window->spPlayerTurn, whosTurnText);
+            labelSetText(window->spPoints, numPointsText);
             if(window->game->mode == 2)
             {
                 char timeLeftAsString[10];
-                update_timer_label(window->game, timeLeftAsString, sizeof(timeLeftAsString));
-                label_set_text(window->timeLabel, "Time left");
-                label_set_text(window->timeNumLabel, timeLeftAsString);
+                updateTimerLabel(window->game, timeLeftAsString, sizeof(timeLeftAsString));
+                labelSetText(window->timeLabel, "Time left");
+                labelSetText(window->timeNumLabel, timeLeftAsString);
             }
             if(window->game->isRunning)
             {
@@ -333,8 +348,7 @@ void handleClick(Window *window) {
                     bool playerWon = window->game->playerPoints > window->game->botPoints ;
                     sprintf(infoMessage, "%s won the game.",
                             playerWon ? "Player" : "Bot");
-                    label_set_text(window->infoLabel, infoMessage);
-                    window->closeGame = true;
+                    labelSetText(window->infoLabel, infoMessage);
                 }
             }
 
@@ -342,7 +356,7 @@ void handleClick(Window *window) {
         if (*window->currentScreen == MULTI_PLAYER_STARTED) {
             //printf("game handle event\n");
             if(!window->mp_gameFinished){
-            game_handle_event_multiplayer(window->game, &event, window->mp_isMyTurn);
+                gameHandleEventMultiplayer(window->game, &event, window->mp_isMyTurn);
             } else {
                 printf("Game finished\n");
                 *window->currentScreen = WIN_SCREEN;
@@ -376,11 +390,13 @@ void draw(Window* window, Screen currentScreen) {
         drawSetters(window->columnButtons, window->renderWindow);
         drawSetters(window->modeButtons, window->renderWindow);
         drawSetters(window->difficultyButtons, window->renderWindow);
-        label_draw(window->rowLabel, window->renderWindow);
-        label_draw(window->colLabel, window->renderWindow);
+        labelDraw(window->rowLabel, window->renderWindow);
+        labelDraw(window->colLabel, window->renderWindow);
+        labelDraw(window->diffLabel, window->renderWindow);
+        labelDraw(window->modeLabel, window->renderWindow);
         if(!window->canStart)
         {
-            label_draw(window->errorLabel, window->renderWindow);
+            labelDraw(window->errorLabel, window->renderWindow);
         }
 
 
@@ -392,12 +408,13 @@ void draw(Window* window, Screen currentScreen) {
         drawSetters(window->columnButtons, window->renderWindow);
         drawSetters(window->modeButtons, window->renderWindow);
         //drawSetters(window->difficultyButtons, window->renderWindow);
-        label_draw(window->rowLabel, window->renderWindow);
-        label_draw(window->colLabel, window->renderWindow);
-        label_draw(window->playersLabel, window->renderWindow);
+        labelDraw(window->rowLabel, window->renderWindow);
+        labelDraw(window->colLabel, window->renderWindow);
+        labelDraw(window->playersLabel, window->renderWindow);
+        labelDraw(window->modeLabel, window->renderWindow);
         if(!window->canStart)
         {
-            label_draw(window->errorLabel, window->renderWindow);
+            labelDraw(window->errorLabel, window->renderWindow);
         }
     } else if (currentScreen == MULTI_PLAYER_HOSTJOIN) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
@@ -406,37 +423,37 @@ void draw(Window* window, Screen currentScreen) {
         sfRenderWindow_drawRectangleShape(window->renderWindow, window->backButton->shape, NULL);
     } else if (currentScreen == MULTI_PLAYER_HOST) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
-        label_draw(window->infoLabel, window->renderWindow);
+        labelDraw(window->infoLabel, window->renderWindow);
         sfRenderWindow_drawRectangleShape(window->renderWindow, window->okButton->shape, NULL);
         sfRenderWindow_drawRectangleShape(window->renderWindow, window->backButton->shape, NULL);
     } else if (currentScreen == MULTI_PLAYER_JOIN) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
-        label_draw(window->infoLabel, window->renderWindow);
+        labelDraw(window->infoLabel, window->renderWindow);
         sfRenderWindow_drawRectangleShape(window->renderWindow, window->okButton->shape, NULL);
         sfRenderWindow_drawRectangleShape(window->renderWindow, window->backButton->shape, NULL);
     } else if (currentScreen == SINGLE_PLAYER_STARTED) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
-        label_draw(window->spPlayerTurn, window->renderWindow);
-        label_draw(window->spPoints, window->renderWindow);
+        labelDraw(window->spPlayerTurn, window->renderWindow);
+        labelDraw(window->spPoints, window->renderWindow);
         if(window->game->mode == 2) {
-            label_draw(window->timeLabel, window->renderWindow);
-            label_draw(window->timeNumLabel, window->renderWindow);
+            labelDraw(window->timeLabel, window->renderWindow);
+            labelDraw(window->timeNumLabel, window->renderWindow);
         }
-        game_draw(window->game, window->renderWindow);
+        gameDraw(window->game, window->renderWindow);
     }else if (currentScreen == MULTI_PLAYER_STARTED) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
-        label_draw(window->spPlayerTurn, window->renderWindow);
-        label_draw(window->spPoints, window->renderWindow);
+        labelDraw(window->spPlayerTurn, window->renderWindow);
+        labelDraw(window->spPoints, window->renderWindow);
         if(window->rules->mode == 2) {
-            label_draw(window->timeLabel, window->renderWindow);
-            label_draw(window->timeNumLabel, window->renderWindow);
+            labelDraw(window->timeLabel, window->renderWindow);
+            labelDraw(window->timeNumLabel, window->renderWindow);
         }
-        game_draw(window->game, window->renderWindow);
+        gameDraw(window->game, window->renderWindow);
     }else if (currentScreen == WIN_SCREEN) {
         sfRenderWindow_drawSprite(window->renderWindow, window->backgroundSprite, NULL);
         sfRenderWindow_drawRectangleShape(window->renderWindow, window->okButton->shape, NULL);
-        label_draw(window->infoLabel, window->renderWindow);
-        label_draw(window->mpPlayersPointsLabel, window->renderWindow);
+        labelDraw(window->infoLabel, window->renderWindow);
+        labelDraw(window->mpPlayersPointsLabel, window->renderWindow);
 
 
     }
@@ -461,52 +478,153 @@ void windowStart(Window* window) {
 
 void windowDestroy(Window* window) {
     if (!window) return;
-    if (window->currentScreen) free(window->currentScreen);
-    if (window->backgroundSprite) sfSprite_destroy(window->backgroundSprite);
-    if (window->backgroundTexture) sfTexture_destroy(window->backgroundTexture);
-    //Buttons
-    if (window->singlePlayerButton) buttonDestroy(window->singlePlayerButton);
-    if (window->multiplayerButton)buttonDestroy(window->multiplayerButton);
-    if (window->exitButton)buttonDestroy(window->exitButton);
-    if (window->backButton)buttonDestroy(window->backButton);
-    if (window->startButton)buttonDestroy(window->startButton);
-    if (window->hostGameButton)buttonDestroy(window->hostGameButton);
-    if (window->joinGameButton)buttonDestroy(window->joinGameButton);
-    if (window->okButton)buttonDestroy(window->okButton);
-    //
-    if (window->header)headerDestroy(window->header);
-    if (window->renderWindow) sfRenderWindow_destroy(window->renderWindow);
-    if (window->rowButtons)settersDestroy(window->rowButtons);
-    if (window->columnButtons)settersDestroy(window->columnButtons);
-    if (window->modeButtons)settersDestroy(window->modeButtons);
-    if (window->difficultyButtons)settersDestroy(window->difficultyButtons);
-    //label
-    if (window->rowLabel)label_destroy(window->rowLabel);
-    if (window->colLabel)label_destroy(window->colLabel);
-    if (window->errorLabel)label_destroy(window->errorLabel);
-    if (window->infoLabel)label_destroy(window->infoLabel);
-    if (window->spPlayerTurn)label_destroy(window->spPlayerTurn);
-    if (window->spPoints)label_destroy(window->spPoints);
-    if (window->timeLabel)label_destroy(window->timeLabel);
-    if (window->timeNumLabel)label_destroy(window->timeNumLabel);
-    if (window->playersLabel)label_destroy(window->playersLabel);
-    if (window->mpPlayersPointsLabel)label_destroy(window->mpPlayersPointsLabel);
 
-    if (window->font)sfFont_destroy(window->font);
-    if (window->game)game_destroy(window->game);
-    if (window->rules)rules_destroy(window->rules);
+    if (window->currentScreen) {
+        free(window->currentScreen);
+        window->currentScreen = NULL;
+    }
+    if (window->backgroundSprite) {
+        sfSprite_destroy(window->backgroundSprite);
+        window->backgroundSprite = NULL;
+    }
+    if (window->backgroundTexture) {
+        sfTexture_destroy(window->backgroundTexture);
+        window->backgroundTexture = NULL;
+    }
+    //Buttony
+    if (window->singlePlayerButton) {
+        buttonDestroy(window->singlePlayerButton);
+        window->singlePlayerButton = NULL;
+    }
+    if (window->multiplayerButton) {
+        buttonDestroy(window->multiplayerButton);
+        window->multiplayerButton = NULL;
+    }
+    if (window->exitButton) {
+        buttonDestroy(window->exitButton);
+        window->exitButton = NULL;
+    }
+    if (window->backButton) {
+        buttonDestroy(window->backButton);
+        window->backButton = NULL;
+    }
+    if (window->startButton) {
+        buttonDestroy(window->startButton);
+        window->startButton = NULL;
+    }
+    if (window->hostGameButton) {
+        buttonDestroy(window->hostGameButton);
+        window->hostGameButton = NULL;
+    }
+    if (window->joinGameButton) {
+        buttonDestroy(window->joinGameButton);
+        window->joinGameButton = NULL;
+    }
+    if (window->okButton) {
+        buttonDestroy(window->okButton);
+        window->okButton = NULL;
+    }
+    if (window->header) {
+        headerDestroy(window->header);
+        window->header = NULL;
+    }
+
+    if (window->renderWindow) {
+        sfRenderWindow_destroy(window->renderWindow);
+        window->renderWindow = NULL;
+    }
+    //Settery
+    if (window->rowButtons) {
+        settersDestroy(window->rowButtons);
+        window->rowButtons = NULL;
+    }
+    if (window->columnButtons) {
+        settersDestroy(window->columnButtons);
+        window->columnButtons = NULL;
+    }
+    if (window->modeButtons) {
+        settersDestroy(window->modeButtons);
+        window->modeButtons = NULL;
+    }
+    if (window->difficultyButtons) {
+        settersDestroy(window->difficultyButtons);
+        window->difficultyButtons = NULL;
+    }
+
+    if (window->rowLabel) {
+        labelDestroy(window->rowLabel);
+        window->rowLabel = NULL;
+    }
+    if (window->colLabel) {
+        labelDestroy(window->colLabel);
+        window->colLabel = NULL;
+    }
+    if (window->errorLabel) {
+        labelDestroy(window->errorLabel);
+        window->errorLabel = NULL;
+    }
+    if (window->infoLabel) {
+        labelDestroy(window->infoLabel);
+        window->infoLabel = NULL;
+    }
+    if (window->spPlayerTurn) {
+        labelDestroy(window->spPlayerTurn);
+        window->spPlayerTurn = NULL;
+    }
+    if (window->spPoints) {
+        labelDestroy(window->spPoints);
+        window->spPoints = NULL;
+    }
+    if (window->timeLabel) {
+        labelDestroy(window->timeLabel);
+        window->timeLabel = NULL;
+    }
+    if (window->timeNumLabel) {
+        labelDestroy(window->timeNumLabel);
+        window->timeNumLabel = NULL;
+    }
+    if (window->playersLabel) {
+        labelDestroy(window->playersLabel);
+        window->playersLabel = NULL;
+    }
+    if (window->mpPlayersPointsLabel) {
+        labelDestroy(window->mpPlayersPointsLabel);
+        window->mpPlayersPointsLabel = NULL;
+    }
+    if (window->diffLabel) {
+        labelDestroy(window->diffLabel);
+        window->diffLabel = NULL;
+    }
+    if (window->modeLabel) {
+        labelDestroy(window->modeLabel);
+        window->modeLabel = NULL;
+    }
+
+    if (window->game) {
+        gameDestroy(window->game);
+        window->game = NULL;
+    }
+    if (window->rules) {
+        rulesDestroy(window->rules);
+        window->rules = NULL;
+    }
 
     if (window->socket) {
         pthread_mutex_lock(&window->socketMutex);
         sfTcpSocket_disconnect(window->socket);
         sfTcpSocket_destroy(window->socket);
         pthread_mutex_unlock(&window->socketMutex);
+        window->socket = NULL;
     }
     pthread_mutex_destroy(&window->socketMutex);
+    if (window->font) {
+        sfFont_destroy(window->font);
+        window->font = NULL;
+    }
     free(window);
 }
 
-void create_listener(Window* window)
+void createListener(Window* window)
 {
     pthread_mutex_lock(&window->socketMutex);
     window->socket = sfTcpSocket_create();
@@ -514,7 +632,7 @@ void create_listener(Window* window)
         printf("Failed to create socket\n");
         char errorMessage[256];
         sprintf(errorMessage, "Failed to create socket.");
-        label_set_text(window->errorLabel, errorMessage);
+        labelSetText(window->errorLabel, errorMessage);
         pthread_mutex_unlock(&window->socketMutex);
         return;
     }
@@ -544,7 +662,7 @@ void create_listener(Window* window)
     }
     pthread_mutex_unlock(&window->socketMutex);
     pthread_t listenerThread;
-    if (pthread_create(&listenerThread, NULL, server_listener_thread, window) != 0) {
+    if (pthread_create(&listenerThread, NULL, serverListenerThread, window) != 0) {
         printf("Failed to create listener thread\n");
     } else {
         printf("Listener thread started\n");
@@ -552,7 +670,7 @@ void create_listener(Window* window)
     pthread_detach(listenerThread);
 }
 
-void* server_listener_thread(void* arg)
+void* serverListenerThread(void* arg)
 {
     Window* window = (Window*)arg;
     char readBuffer[256];
@@ -689,7 +807,7 @@ void* server_listener_thread(void* arg)
     /*
     if (!window->game->isRunning) {
         pthread_mutex_lock(&window->socketMutex);
-        game_start_multiplayer(window->game, window->rowSize, window->colSize, window->renderWindow, window->socket);
+        gameStartMultiplayer(window->game, window->rowSize, window->colSize, window->renderWindow, window->socket);
         pthread_mutex_unlock(&window->socketMutex);
     }
      */
@@ -715,7 +833,7 @@ void* server_listener_thread(void* arg)
 }
 void handlePoints(Window* window, const char* line) {
     printf("[Debug] Processing WIN message:\n%s\n", line);
-    const char* currentLabelText = label_get_text(window->mpPlayersPointsLabel);
+    const char* currentLabelText = labelGetText(window->mpPlayersPointsLabel);
     char finalMessage[512];
 
     snprintf(finalMessage, sizeof(finalMessage), "%s", currentLabelText);
@@ -728,7 +846,7 @@ void handlePoints(Window* window, const char* line) {
     } else {
         printf("[Error] Failed to parse line: %s\n", line);
     }
-    label_set_text(window->mpPlayersPointsLabel, finalMessage);
+    labelSetText(window->mpPlayersPointsLabel, finalMessage);
     printf("[Debug] Final points displayed:\n%s\n", finalMessage);
 }
 
@@ -750,7 +868,8 @@ void handlePoints(Window* window, const char* line) {
         if (!window->game->grid) {
             printf("Grid not yet initialized.\nCreating a new Grid.. \n");
             calculateGridLayout(window->game,window->renderWindow);
-            window->game->grid = pexeso_grid_create(window->rowSize, window->colSize,window->game->gridStartPosition, window->game->tileSize, false);
+            window->game->grid = pexesoGridCreate(window->rowSize, window->colSize, window->game->gridStartPosition,
+                                                  window->game->tileSize, false);
         }
         window->game->grid->pexesoObjects[cardID] = pex;
 
@@ -770,7 +889,7 @@ void handlePoints(Window* window, const char* line) {
     window->game->gridLoaded = true;
     if (!window->game->isRunning) {
         pthread_mutex_lock(&window->socketMutex);
-        game_start_multiplayer(window->game, window->rowSize, window->colSize, window->renderWindow, window->socket);
+        gameStartMultiplayer(window->game, window->rowSize, window->colSize, window->renderWindow, window->socket);
         pthread_mutex_unlock(&window->socketMutex);
     }
 }
@@ -818,12 +937,12 @@ void handleClientTurn(Window* window, const char* line) {
             printf("My turn.\n");
             window->mp_isMyTurn = true;
             sprintf(turnText, "Your turn");
-            label_set_text(window->spPlayerTurn, turnText);
+            labelSetText(window->spPlayerTurn, turnText);
         } else {
             printf("Not my turn.\n");
             window->mp_isMyTurn = false;
-            sprintf(turnText, "Client's %d turn ", id);
-            label_set_text(window->spPlayerTurn, turnText);
+            sprintf(turnText, "Player %d turn ", id+1);
+            labelSetText(window->spPlayerTurn, turnText);
         }
     }
 }
@@ -835,8 +954,8 @@ void handleGameFinish(Window* window, const char* line)
         window->mp_gameFinished = true;
         char pointsMessage[256] = "The game has finished.\n";
         sfVector2f pos = {pos.x = 250, pos.y = 275};
-        label_set_position(window->infoLabel,pos);
-        label_set_text(window->infoLabel, pointsMessage);
+        labelSetPosition(window->infoLabel, pos);
+        labelSetText(window->infoLabel, pointsMessage);
     }
 }
 void handleUpdatePoints(Window* window, const char* line) {
@@ -844,7 +963,7 @@ void handleUpdatePoints(Window* window, const char* line) {
     if (sscanf(line, "UPDATE %d", &points) == 1) {
         char pointsText[64];
         sprintf(pointsText, "%d points", points);
-        label_set_text(window->spPoints, pointsText);
+        labelSetText(window->spPoints, pointsText);
     }
 }
 void handlePing(Window* window, const char* line) {
@@ -862,13 +981,13 @@ void handleTime(Window* window, const char* line) {
     if (sscanf(line, "TIME %d", &timeLeft) == 1) {
         char timeText[64];
         sprintf(timeText, "%02d:%02d", timeLeft / 60,timeLeft % 60);
-        label_set_text(window->timeNumLabel, timeText);
+        labelSetText(window->timeNumLabel, timeText);
     }
 
 }
 
 
-void send_grid_to_server(sfTcpSocket* socket, int rows, int cols, int timed) {
+void sendGridToServer(sfTcpSocket* socket, int rows, int cols, int timed) {
     if (!socket) {
         printf("Socket is NULL. Cannot send grid.\n");
         return;

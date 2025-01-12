@@ -55,5 +55,5 @@ void addPointsToCurrentClient(Server* server, bool addPoints);
 bool checkPairedCards(Pexeso* pexFirst, Pexeso* pexSecond);
 Pexeso* findByID(Server* server, int id);
 void nextTurn(Server* server, bool calculateNext);
-void* handle_client(void* client_socket);
+void* handleClient(void* client_socket);
 #endif //PEXESO_SERVER_H

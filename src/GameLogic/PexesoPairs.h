@@ -13,7 +13,6 @@ typedef struct {
     char label;
 } PexesoPair;
 
-PexesoPair* pexeso_pairs_generate(int rows, int columns);
-void shuffle_array(void* array, int count, size_t elementSize);
-void shuffle_pairs(PexesoPair* pairs, int count);
+PexesoPair* pexesoPairsGenerate(int rows, int columns);
+void shufflePairs(PexesoPair* pairs, int count);
 #endif //PEXESO_PEXESOPAIRS_H

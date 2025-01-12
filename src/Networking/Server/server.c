@@ -158,7 +158,13 @@ int get_remaining_time(Server* server) {
     return (remainingTime > 0) ? remainingTime : 0;
 }
 
-void *handle_client(void *arg) {
+void setActive(Server* server) {
+    if(server->currentClientTurn) {
+
+    }
+}
+
+void *handleClient(void *arg) {
     ClientArg *args = (ClientArg *) arg;
     Server *server = args->server;
     sfTcpSocket *client = args->client;
@@ -202,7 +208,7 @@ void *handle_client(void *arg) {
             printf("Problem with generating grid on the server.\n");
         }
         printf("Grid generated on server\n");
-        pexeso_grid_generate(server->currentGrid);
+        pexesoGridGenerate(server->currentGrid);
         broadcast_grid(server);
         server->isGameRunning = true;
         sfTcpSocket_setBlocking(client, sfFalse);
@@ -246,7 +252,7 @@ void *handle_client(void *arg) {
             int saveClientCount = server->clientCount;
             for (int i = 0; i < server->clientCount; ++i) {
                 if (server->clients[i] == client) {
-                    printf("Marking client ID %d as disconnected.\n", i);
+                    printf("Setting client ID %d as disconnected.\n", i);
                     ClientArg* disconnectedClient = (ClientArg*)server->clients[i];
                     disconnectedClient->id = -1;
                     server->clientCount--;
@@ -297,7 +303,7 @@ void *handle_client(void *arg) {
 
             }
             pthread_mutex_unlock(&server->clientMutex);
-
+            //
             pthread_mutex_lock(&server->clientMutex);
             if (client) {
                 printf("Destroying client socket: %p\n", (void*)client);
@@ -469,7 +475,7 @@ int main() {
         args->client = client;
 
         pthread_t client_thread;
-        if (pthread_create(&client_thread, NULL, handle_client, args) != 0) {
+        if (pthread_create(&client_thread, NULL, handleClient, args) != 0) {
             printf("Failed to create thread for client\n");
             pthread_mutex_lock(&server.clientMutex);
             --server.clientCount;

@@ -24,38 +24,41 @@
 
 
 typedef struct {
-    sfRenderWindow* renderWindow;
-    Button* singlePlayerButton;
-    Button* multiplayerButton;
-    Button* exitButton;
-    Button* backButton;
-    Button* startButton;
-    Button* hostGameButton;
-    Button* joinGameButton;
-    Button* okButton;
-    SetterButtons* rowButtons;
-    SetterButtons* columnButtons;
-    SetterButtons* modeButtons;
-    SetterButtons* difficultyButtons;
-    sfTexture* backgroundTexture;
-    sfSprite* backgroundSprite;
-    Label* rowLabel;
-    Label* colLabel;
-    Label* errorLabel;
-    Label* infoLabel;
-    Label* spPlayerTurn;
-    Label* spPoints;
-    Label* timeLabel;
-    Label* timeNumLabel;
-    Label* playersLabel;
-    Label* mpPlayersPointsLabel;
-    Screen* currentScreen;
-    Header* header;
-    sfFont* font;
-    Rules* rules;
-    Game* game;
-    sfTcpSocket* socket;
-    pthread_mutex_t socketMutex;
+    sfRenderWindow* renderWindow; //
+    Button* singlePlayerButton; //
+    Button* multiplayerButton; //
+    Button* exitButton; //
+    Button* backButton; //
+    Button* startButton; //
+    Button* hostGameButton; //
+    Button* joinGameButton; //
+    Button* okButton; //
+    SetterButtons* rowButtons; //
+    SetterButtons* columnButtons; //
+    SetterButtons* modeButtons; //
+    SetterButtons* difficultyButtons; //
+    sfTexture* backgroundTexture; //
+    sfSprite* backgroundSprite; //
+    Label* rowLabel; //
+    Label* colLabel; //
+    Label* diffLabel; //
+    Label* modeLabel; //
+    Label* errorLabel; //
+    Label* infoLabel; //
+    Label* spPlayerTurn; //
+    Label* spPoints; //
+    Label* timeLabel; //
+    Label* timeNumLabel; //
+    Label* playersLabel; //
+    Label* mpPlayersPointsLabel; //
+    Header* header; //
+    sfFont* font; //
+    Screen* currentScreen; //
+    sfTcpSocket* socket; //
+
+    Rules* rules; //
+    Game* game; //
+    pthread_mutex_t socketMutex; //
     int rowSize;
     int colSize;
     bool canStart;
@@ -77,8 +80,8 @@ void draw(Window* window, Screen currentScreen);
 void windowStart(Window* window);
 void windowDestroy(Window* window);
 
-void create_listener(Window* window);
-void* server_listener_thread(void* arg);
+void createListener(Window* window);
+void* serverListenerThread(void* arg);
 
 //Handlery
 void handleComplete(Window* window);
@@ -97,6 +100,6 @@ void handleUpdatePoints(Window* window, const char* line);
 void handlePoints(Window* window, const char* line);
 void handlePing(Window* window, const char* line);
 void handleTime(Window* window, const char* line);
-void send_grid_to_server(sfTcpSocket* socket, int rows, int cols, int timed);
-void send_name_to_server(sfTcpSocket* socket);
+void sendGridToServer(sfTcpSocket* socket, int rows, int cols, int timed);
+void sendNameToServer(sfTcpSocket* socket);
 #endif //PEXESO_WINDOW_H

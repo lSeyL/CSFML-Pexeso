@@ -14,8 +14,8 @@ typedef struct {
     int mode;
     bool isBotGame;
 } Rules;
-Rules* rules_create();
-void rules_destroy(Rules* rules);
+Rules* rulesCreate();
+void rulesDestroy(Rules* rules);
 bool checkPair(Rules* rules,int rows, int columns);
 bool getIsPaired(const Rules* rules);
 void setDifficulty(Rules* rules, int difficulty);

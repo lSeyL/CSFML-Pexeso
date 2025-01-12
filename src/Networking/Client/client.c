@@ -12,5 +12,6 @@ int main()
     }
     windowStart(window);
     windowDestroy(window);
+    window = NULL;
     return 0;
 }

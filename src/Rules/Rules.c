@@ -4,7 +4,7 @@
 #include "Rules.h"
 
 
-Rules* rules_create() {
+Rules* rulesCreate() {
     Rules* rules = (Rules*)malloc(sizeof(Rules));
     if (!rules) return NULL;
 
@@ -14,9 +14,10 @@ Rules* rules_create() {
     rules->isBotGame = false;
     return rules;
 }
-void rules_destroy(Rules* rules) {
+void rulesDestroy(Rules* rules) {
     if (rules) {
         free(rules);
+        rules = NULL;
     }
 }
 bool checkPair(Rules* rules, int rows, int columns) {

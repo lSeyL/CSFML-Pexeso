@@ -1,7 +1,7 @@
 #include "PexesoGrid.h"
 
 
-PexesoGrid* pexeso_grid_create(int rows, int columns, sfVector2f startPosition, sfVector2f pexesoSize, bool generate) {
+PexesoGrid* pexesoGridCreate(int rows, int columns, sfVector2f startPosition, sfVector2f pexesoSize, bool generate) {
     PexesoGrid* grid = (PexesoGrid*)malloc(sizeof(PexesoGrid));
     if (!grid) return NULL;
     grid->rows = rows;
@@ -14,26 +14,32 @@ PexesoGrid* pexeso_grid_create(int rows, int columns, sfVector2f startPosition, 
         return NULL;
     }
     if(generate) {
-        pexeso_grid_generate(grid);
+        pexesoGridGenerate(grid);
     }
     return grid;
 }
 
-void pexeso_grid_destroy(PexesoGrid* grid) {
+void pexesoGridDestroy(PexesoGrid* grid) {
+    if (!grid) return;
+
     printf("Destroying pexeso objects.\n");
-    if (grid) {
+
+    if (grid->pexesoObjects) {
         for (int i = 0; i < grid->rows * grid->columns; ++i) {
             if (grid->pexesoObjects[i]) {
                 destroy(grid->pexesoObjects[i]);
+                grid->pexesoObjects[i] = NULL;
             }
         }
         free(grid->pexesoObjects);
-        free(grid);
+        grid->pexesoObjects = NULL;
     }
+    free(grid);
+    printf("Pexeso grid destroyed.\n");
 }
 
-void pexeso_grid_generate(PexesoGrid* grid) {
-    PexesoPair* pairs = pexeso_pairs_generate(grid->rows, grid->columns);
+void pexesoGridGenerate(PexesoGrid* grid) {
+    PexesoPair* pairs = pexesoPairsGenerate(grid->rows, grid->columns);
     if (!pairs) {
         printf("Failed to generate pairs\n");
         return;
@@ -54,7 +60,7 @@ void pexeso_grid_generate(PexesoGrid* grid) {
     free(pairs);
 }
 
-void pexeso_grid_shuffle(PexesoGrid* grid) {
+void pexesoGridShuffle(PexesoGrid* grid) {
     int count = grid->rows * grid->columns;
     srand(time(NULL));
     for (int i = count - 1; i > 0; --i) {
@@ -66,13 +72,13 @@ void pexeso_grid_shuffle(PexesoGrid* grid) {
     }
 }
 
-void pexeso_grid_draw(PexesoGrid* grid, sfRenderWindow* window) {
+void pexesoGridDraw(PexesoGrid* grid, sfRenderWindow* window) {
     for (int i = 0; i < grid->rows * grid->columns; ++i) {
         pexesoDraw(grid->pexesoObjects[i], window);
     }
 }
 
-void pexeso_grid_handle_click(PexesoGrid* grid, const sfEvent* event) {
+void pexesoGridHandleClick(PexesoGrid* grid, const sfEvent* event) {
     if (!grid || !event) return;
     if (event->type == sfEvtMouseButtonPressed) {
         for (int i = 0; i < grid->rows * grid->columns; ++i) {

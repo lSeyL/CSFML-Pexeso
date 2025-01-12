@@ -28,17 +28,17 @@ typedef struct {
 typedef struct {
     sfVector2f tileSize;
     sfVector2f gridStartPosition;
-    PexesoGrid* grid;
-    int rowSize;
-    int colSize;
-    sfTcpSocket* socket;
+    PexesoGrid* grid; //
+    int rowSize; //
+    int colSize; //
+    sfTcpSocket* socket; //
     bool gridLoaded;
     int gridDataCount;
     bool isHost;
     bool isMultiplayer;
     bool isRunning;
     bool disableSend;
-    bool win;
+    bool win; //
     int playerPoints;
     int mode;
     //bot
@@ -54,27 +54,27 @@ typedef struct {
 
 
 
-Game* game_create(sfRenderWindow* renderWindow, Rules* rules);
-void debug_grid_mapping(Game* game);
+Game* gameCreate(sfRenderWindow* renderWindow, Rules* rules);
+//void debug_grid_mapping(Game* game);
 void calculateGridLayout(Game* game, sfRenderWindow* window);
-void setupLabels();
-void game_destroy(Game* game);
+//void setupLabels();
+void gameDestroy(Game* game);
 bool checkWinCondition(Game* game);
-void game_check_pair(Game* game,Pexeso* revealedCards[2], bool* waitingToHide, sfClock* revealTimer);
-void game_reset_revealed_cards(Game* game,Pexeso* revealedCards[2], bool* inputDisabled, bool* waitingToHide, sfClock* revealTimer);
-void game_handle_revealed_cards(Game* game, Pexeso* revealedCards[2], bool* inputDisabled, bool* waitingToHide, sfClock* revealTimer);
-void game_start_singleplayer(Game* game, int rows, int cols, sfRenderWindow* window, int difficulty, int mode);
-void game_draw(Game* game, sfRenderWindow* window);
+void gameCheckPair(Game* game, Pexeso *revealedCards[2], bool* waitingToHide, sfClock* revealTimer);
+//void game_reset_revealed_cards(Game* game,Pexeso* revealedCards[2], bool* inputDisabled, bool* waitingToHide, sfClock* revealTimer);
+void gameHandleRevealedCards(Game* game, Pexeso *revealedCards[2], bool* inputDisabled, bool* waitingToHide, sfClock* revealTimer);
+void gameStartSingleplayer(Game* game, int rows, int cols, sfRenderWindow* window, int difficulty, int mode);
+void gameDraw(Game* game, sfRenderWindow* window);
 //bot
-void bot_take_turn(Game* game, sfClock* revealTimer, Pexeso* revealedCards[2], bool* inputDisabled, bool* waitingToHide);
-void bot_remember_card(Game* game, int cardID, char label, unsigned int color);
-void bot_mark_cards_found(Game* game, int cardID1, int cardID2);
-void bot_sync_memory(Game* game);
+void bot_makeTurn(Game* game, sfClock* revealTimer, Pexeso *revealedCards[2], bool* inputDisabled, bool* waitingToHide);
+void bot_rememberCard(Game* game, int cardID, char label, unsigned int color);
+void bot_markCardsFound(Game* game, int cardID1, int cardID2);
+void bot_sync(Game* game);
 //timed
-int get_remaining_time(Game* game);
-void update_timer_label(Game* game, char* buffer, size_t bufferSize);
+int getRemainingTime(Game* game);
+void updateTimerLabel(Game* game, char* buffer, size_t bufferSize);
 //mp
-void game_handle_event(Game* game, const sfEvent* event);
-void game_start_multiplayer(Game* game, int rows, int cols, sfRenderWindow* window, sfTcpSocket* socket);
-void game_handle_event_multiplayer(Game* game, const sfEvent* event, bool isMyTurn);
+void gameHandleEvent(Game* game, const sfEvent* event);
+void gameStartMultiplayer(Game* game, int rows, int cols, sfRenderWindow* window, sfTcpSocket* socket);
+void gameHandleEventMultiplayer(Game* game, const sfEvent* event, bool isMyTurn);
 #endif //PEXESO_GAME_H

@@ -46,6 +46,16 @@ SetterButtons* setterCreateWithName(const sfVector2f* startPosition, const sfVec
     dimensionButtons->buttonCount = labelCount;
     dimensionButtons->selectedIndex = -1;
 
+    if (!dimensionButtons->buttons || !dimensionButtons->labels) {
+        settersDestroy(dimensionButtons);
+        return NULL;
+    }
+
+    for (size_t i = 0; i < dimensionButtons->buttonCount; ++i) {
+        dimensionButtons->buttons[i] = NULL;
+        dimensionButtons->labels[i] = NULL;
+    }
+
     for (size_t i = 0; i < labelCount; ++i) {
         sfVector2f position = {
                 startPosition->x + i * (buttonSize->x + 10),
@@ -113,10 +123,23 @@ void highlightButton(SetterButtons* dimensionButtons, size_t index) {
 void settersDestroy(SetterButtons* dimensionButtons) {
     if (!dimensionButtons) return;
     for (size_t i = 0; i < dimensionButtons->buttonCount; ++i) {
-        sfRectangleShape_destroy(dimensionButtons->buttons[i]);
-        sfText_destroy(dimensionButtons->labels[i]);
+        if (dimensionButtons->buttons[i]) {
+            sfRectangleShape_destroy(dimensionButtons->buttons[i]);
+            dimensionButtons->buttons[i] = NULL;
+        }
+        if (dimensionButtons->labels[i]) {
+            sfText_destroy(dimensionButtons->labels[i]);
+            dimensionButtons->labels[i] = NULL;
+        }
     }
-    free(dimensionButtons->buttons);
-    free(dimensionButtons->labels);
+    if (dimensionButtons->buttons) {
+        free(dimensionButtons->buttons);
+        dimensionButtons->buttons = NULL;
+    }
+    if (dimensionButtons->labels) {
+        free(dimensionButtons->labels);
+        dimensionButtons->labels = NULL;
+    }
     free(dimensionButtons);
+    printf("SetterButtons destroyed.\n");
 }

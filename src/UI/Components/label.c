@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-Label* label_create(const char* text, sfFont* font, sfVector2f position, unsigned int fontSize, sfColor color) {
+Label* labelCreate(const char* text, sfFont* font, sfVector2f position, unsigned int fontSize, sfColor color) {
     if (!font) {
         printf("Error: Font is NULL\n");
         return NULL;
@@ -32,30 +32,30 @@ Label* label_create(const char* text, sfFont* font, sfVector2f position, unsigne
     return label;
 }
 
-void label_set_text(Label* label, const char* text) {
+void labelSetText(Label* label, const char* text) {
     if (label && label->text) {
         sfText_setString(label->text, text);
     }
 }
 
-const char* label_get_text(Label* label) {
+const char* labelGetText(Label* label) {
     return sfText_getString(label->text);
 }
 
-void label_set_position(Label* label, sfVector2f position) {
+void labelSetPosition(Label* label, sfVector2f position) {
     if (label && label->text) {
         sfText_setPosition(label->text, position);
         label->position = position;
     }
 }
 
-void label_draw(Label* label, sfRenderWindow* window) {
+void labelDraw(Label* label, sfRenderWindow* window) {
     if (label && label->text) {
         sfRenderWindow_drawText(window, label->text, NULL);
     }
 }
 
-void label_destroy(Label* label) {
+void labelDestroy(Label* label) {
     if (label) {
         if (label->text) sfText_destroy(label->text);
         free(label);

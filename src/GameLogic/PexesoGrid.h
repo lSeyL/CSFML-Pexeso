@@ -21,11 +21,11 @@ typedef struct {
     Pexeso** pexesoObjects;
 } PexesoGrid;
 
-PexesoGrid* pexeso_grid_create(int rows, int columns, sfVector2f startPosition, sfVector2f pexesoSize, bool generate);
-void pexeso_grid_destroy(PexesoGrid* grid);
+PexesoGrid* pexesoGridCreate(int rows, int columns, sfVector2f startPosition, sfVector2f pexesoSize, bool generate);
+void pexesoGridDestroy(PexesoGrid* grid);
 
-void pexeso_grid_generate(PexesoGrid* grid);
-void pexeso_grid_shuffle(PexesoGrid* grid);
-void pexeso_grid_draw(PexesoGrid* grid, sfRenderWindow* window);
-void pexeso_grid_handle_click(PexesoGrid* grid, const sfEvent* event);
+void pexesoGridGenerate(PexesoGrid* grid);
+void pexesoGridShuffle(PexesoGrid* grid);
+void pexesoGridDraw(PexesoGrid* grid, sfRenderWindow* window);
+void pexesoGridHandleClick(PexesoGrid* grid, const sfEvent* event);
 #endif //PEXESO_PEXESOGRID_H
