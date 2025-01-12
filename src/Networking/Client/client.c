@@ -1,6 +1,7 @@
 //
 // Created by seil0 on 1. 1. 2025.
 //
+//12.1.2025
 #include <stdio.h>
 #include "../../UI/window.h"
 int main()
